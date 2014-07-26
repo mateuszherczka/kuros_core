@@ -1,5 +1,5 @@
-#ifndef DATAFILE_H
-#define DATAFILE_H
+#ifndef KUROSDATAFILE_H
+#define KUROSDATAFILE_H
 
 #include <iostream>
 #include <string>
@@ -16,6 +16,7 @@ using std::ifstream;
 
 /*
 Helper class for loading space-delimited files generated in matlab etc.
+Not production-strength but works for simple testing.
 */
 class DataFile
 {
@@ -23,7 +24,11 @@ class DataFile
         DataFile();
         virtual ~DataFile();
 
-        void loadSpaceDelimited(const string& filename, trajectory_vec &trajectory, size_t framesize = 6);
+        /*
+        Load space delimited file with each line containing <framesize> doubles.
+        Any line which parses to a different result is ignored.
+        */
+        void loadSDFrames(const string& filename, trajectory_vec &trajectory, size_t framesize = 6);
 
         double roundToPrecision(double val);
 

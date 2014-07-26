@@ -13,6 +13,13 @@ class KukaResponse : public XMLParser
     public:
 
         // ---------------------------------------------------------------------------
+        // Public Data
+        // ---------------------------------------------------------------------------
+        std::vector<int> info;
+        std::vector<double> frame;
+        std::vector<double> axis;
+
+        // ---------------------------------------------------------------------------
         // Constructor / Destructor
         // ---------------------------------------------------------------------------
 
@@ -28,7 +35,7 @@ class KukaResponse : public XMLParser
         void parse(boost::asio::streambuf &message);
 
         /*
-            Status Error Mode Tick Id
+            Status Id Tick
         */
         std::vector<int> getInfo();
 
@@ -36,6 +43,11 @@ class KukaResponse : public XMLParser
             X Y Z A B C
         */
         std::vector<double> getFrame();
+
+        /*
+            a1 a2 a3 a4 a5 a6
+        */
+        std::vector<double> getAxis();
 
         void printValues();
 
@@ -47,8 +59,7 @@ class KukaResponse : public XMLParser
         // Private Data
         // ---------------------------------------------------------------------------
 
-        std::vector<int> info;
-        std::vector<double> frame;
+
 
 };
 

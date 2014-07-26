@@ -1,4 +1,4 @@
-#include <ServerConfig.hpp>
+#include "ServerConfig.hpp"
 
 
 ServerConfig::ServerConfig() {}
@@ -99,4 +99,17 @@ void ServerConfig::parse()
     {
         nodeNotFound("MaxBufferSize");
     }
+}
+
+unsigned short ServerConfig::getPort()
+{
+    return port;
+}
+size_t ServerConfig::getMaxBufferSize()
+{
+    return maxBufferSize;
+}
+std::string ServerConfig::getEndString()
+{
+    return endString;    // TODO: endString.c_ptr() ?
 }

@@ -1,6 +1,6 @@
-#include <KukaResponse.hpp>
+#include "KukaResponse.hpp"
 
-KukaResponse::KukaResponse() : info(5,0), frame(6,0) {}
+KukaResponse::KukaResponse() : info(3,0), frame(6,0) {}
 
 KukaResponse::~KukaResponse() {}
 
@@ -43,9 +43,9 @@ void KukaResponse::parse(boost::asio::streambuf &message)
         nodeNotFound("Status");
     }
 
-    // Error
+    // Id
     xmltext = docHandle.FirstChildElement( "Robot" )
-              .FirstChildElement( "Error" )
+              .FirstChildElement( "Id" )
               .FirstChild()   // this is a text, not an element
               .ToText();
 
@@ -57,34 +57,12 @@ void KukaResponse::parse(boost::asio::streambuf &message)
         }
         catch (const boost::bad_lexical_cast &e)
         {
-            badCast("Error");
+            badCast("Id");
         }
     }
     else
     {
-        nodeNotFound("Error");
-    }
-
-    // Mode
-    xmltext = docHandle.FirstChildElement( "Robot" )
-              .FirstChildElement( "Mode" )
-              .FirstChild()   // this is a text, not an element
-              .ToText();
-
-    if( xmltext )
-    {
-        try
-        {
-            info[2] = boost::lexical_cast<int>(xmltext->Value());
-        }
-        catch (const boost::bad_lexical_cast &e)
-        {
-            badCast("Mode");
-        }
-    }
-    else
-    {
-        nodeNotFound("Mode");
+        nodeNotFound("Id");
     }
 
     // Tick
@@ -97,7 +75,7 @@ void KukaResponse::parse(boost::asio::streambuf &message)
     {
         try
         {
-            info[3] = boost::lexical_cast<int>(xmltext->Value());
+            info[2] = boost::lexical_cast<int>(xmltext->Value());
         }
         catch (const boost::bad_lexical_cast &e)
         {
@@ -109,27 +87,6 @@ void KukaResponse::parse(boost::asio::streambuf &message)
         nodeNotFound("Tick");
     }
 
-    // Id
-    xmltext = docHandle.FirstChildElement( "Robot" )
-              .FirstChildElement( "Id" )
-              .FirstChild()   // this is a text, not an element
-              .ToText();
-
-    if( xmltext )
-    {
-        try
-        {
-            info[4] = boost::lexical_cast<int>(xmltext->Value());
-        }
-        catch (const boost::bad_lexical_cast &e)
-        {
-            badCast("Id");
-        }
-    }
-    else
-    {
-        nodeNotFound("Id");
-    }
 
     // ActPos
     XMLElement *xframe = docHandle.FirstChildElement( "Robot" ).
@@ -162,6 +119,38 @@ void KukaResponse::parse(boost::asio::streambuf &message)
     {
         nodeNotFound("ActPos");
     }
+
+    // Axis
+    XMLElement *axframe = docHandle.FirstChildElement( "Robot" ).
+                         FirstChildElement( "Axis" ).
+                         ToElement();
+
+    if ( axframe )      // check for nulpointer
+    {
+
+        int xmlerr = 0;
+
+        xmlerr += axframe->QueryDoubleAttribute( "A1",&axis[0] );    // errorcode 0 if ok
+
+        xmlerr += axframe->QueryDoubleAttribute( "A2",&axis[1] );
+
+        xmlerr += axframe->QueryDoubleAttribute( "A3",&axis[2] );
+
+        xmlerr += axframe->QueryDoubleAttribute( "A4",&axis[3] );    // errorcode 0 if ok
+
+        xmlerr += axframe->QueryDoubleAttribute( "A5",&axis[4] );
+
+        xmlerr += axframe->QueryDoubleAttribute( "A6",&axis[5] );
+
+        if (xmlerr != 0)
+        {
+            malformedXMLError("Axis Attributes");
+        }
+    }
+    else
+    {
+        nodeNotFound("Axis");
+    }
 }
 
 /*
@@ -180,6 +169,14 @@ std::vector<double> KukaResponse::getFrame()
     return frame;
 }
 
+/*
+    A1...A6
+*/
+std::vector<double> KukaResponse::getAxis()
+{
+    return axis;
+}
+
 void KukaResponse::printValues()
 {
 
@@ -192,6 +189,13 @@ void KukaResponse::printValues()
 
     cout << "Frame: ";
     for (const auto &val : frame)
+    {
+        cout << val << " ";
+    }
+    cout << endl;
+
+    cout << "Axis: ";
+    for (const auto &val : axis)
     {
         cout << val << " ";
     }

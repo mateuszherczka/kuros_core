@@ -4,7 +4,7 @@ DataFile::DataFile() {}
 
 DataFile::~DataFile() {}
 
-void DataFile::loadSpaceDelimited(const string& filename, trajectory_vec &trajectory, size_t framesize)
+void DataFile::loadSDFrames(const string& filename, trajectory_vec &trajectory, size_t framesize)
 {
 
     string line;
@@ -18,37 +18,39 @@ void DataFile::loadSpaceDelimited(const string& filename, trajectory_vec &trajec
         while ( getline(file,line) )
         {
 
-            // TODO: filter out empty lines and incorrect lines
-
             boost::tokenizer<boost::char_separator<char>> tokens(line, spaceSeparator);
 
             frame_vec frame;
 
-            try
+            for (const auto &token : tokens)    // token content should be a double
             {
-
-                for (const auto &token : tokens)    // token content should be a double
+                try
                 {
-
                     frame.push_back(boost::lexical_cast<double>(token));
                 }
-            }
-            catch (std::exception& e)
-            {
-                cerr << "Cast to double in datafile failed, file not read: " << e.what();
-                return;
+                catch (std::exception& e)
+                {
+                    cerr << "Cast to double in data file failed for token " << token << ". "<< e.what();
+                }
             }
 
+            // only use line if there are correct number of tokens
             if (frame.size() == framesize)  // TODO: rewrite this hack
             {
                 trajectory.push_back(frame);    // TODO: is this efficient copywise?
             }
+            else
+            {
+                cerr << "An invalid frame has been ignored. " << endl;
+            }
         }
+
         file.close();
     }
-
-    else cerr << "Unable to open space delimited data file " << filename << endl;
-
+    else
+    {
+        cerr << "Unable to open space delimited data file " << filename << endl;
+    }
 }
 
 double DataFile::roundToPrecision(double val)

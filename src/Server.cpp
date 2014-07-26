@@ -1,4 +1,4 @@
-#include <Server.hpp>
+#include "Server.hpp"
 
 Server::Server()
 {
@@ -8,6 +8,7 @@ Server::Server()
 Server::~Server()
 {}
 
+/*  deprecated
 void Server::sendPose(const info_vec &info, const frame_vec &frame)
 {
     streambuf_ptr message(new boost::asio::streambuf);
@@ -15,6 +16,7 @@ void Server::sendPose(const info_vec &info, const frame_vec &frame)
 
     messageQueue.push(message);
 }
+*/
 
 void Server::sendTrajectory(const info_vec &info, const trajectory_vec &trajectory)
 {
@@ -67,7 +69,7 @@ void Server::onResponse(socket_ptr sock)
         try
         {
             streambuf_ptr message;
-            responseQueue.wait_and_pop(message);    // blocks
+            responseQueue.wait_and_pop(message);    // blocks until somethin is in the queue
 
             // we have a message, parse xml and do something
             response.parse(*message);
@@ -85,11 +87,9 @@ void Server::onResponse(socket_ptr sock)
         catch (std::exception &e)
         {
             cout << "OnResponse exception: " << e.what() << endl;
-            //closeConnection();
-            //return;
         }
     }
-}
+}   // separate thread
 
 void Server::startListening(unsigned short port)
 {

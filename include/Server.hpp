@@ -46,6 +46,12 @@ class Server
         // Pure Virtual
         // ---------------------------------------------------------------------------
 
+        /*
+        handleResponse() is called from a separate response thread.
+        There is a queue between the socket and this call.
+        Still, if you expect a 12ms stream of responses, it's probably a good idea
+        to deal with the response swiftly.
+        */
         virtual void handleResponse() = 0; // This is mandatory to implement in derived class
         virtual void handleDisconnect() = 0; // This is mandatory to implement in derived class
 
@@ -53,7 +59,7 @@ class Server
         // Methods
         // ---------------------------------------------------------------------------
 
-        void sendPose(const info_vec &info, const frame_vec &frame);
+        // void sendPose(const info_vec &info, const frame_vec &frame); // deprecated
 
         void sendTrajectory(const info_vec &info, const trajectory_vec &trajectory);
 
@@ -92,19 +98,20 @@ class Server
         ThreadSafeQueue<streambuf_ptr> responseQueue;
 
         // ---------------------------------------------------------------------------
-        // Methods
+        // Private Methods
         // ---------------------------------------------------------------------------
-
-        /*
-        Blocks while connected.
-        */
-        void onResponse(socket_ptr sock);
 
         /*
         Specify port. Blocks until incoming connection.
         When connected, spawns read/write threads, then exits.
         */
         void startListening(unsigned short port);
+
+        /*
+        Specify socket pointer.
+        Blocks until connection ends.
+        */
+        void onResponse(socket_ptr sock);
 
         /*
         Specify socket pointer.
