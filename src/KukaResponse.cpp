@@ -1,6 +1,6 @@
 #include "KukaResponse.hpp"
 
-KukaResponse::KukaResponse() : info(3,0), frame(6,0) {}
+KukaResponse::KukaResponse() : info(3,0), frame(6,0), axis(6,0) {}
 
 KukaResponse::~KukaResponse() {}
 
@@ -98,17 +98,17 @@ void KukaResponse::parse(boost::asio::streambuf &message)
 
         int xmlerr = 0;
 
-        xmlerr += xframe->QueryDoubleAttribute( "X",&frame[0] );    // errorcode 0 if ok
+        xmlerr += xframe->QueryDoubleAttribute( "X",&frame[KUKA_FRAME_X] );    // errorcode 0 if ok
 
-        xmlerr += xframe->QueryDoubleAttribute( "Y",&frame[1] );
+        xmlerr += xframe->QueryDoubleAttribute( "Y",&frame[KUKA_FRAME_Y] );
 
-        xmlerr += xframe->QueryDoubleAttribute( "Z",&frame[2] );
+        xmlerr += xframe->QueryDoubleAttribute( "Z",&frame[KUKA_FRAME_Z] );
 
-        xmlerr += xframe->QueryDoubleAttribute( "A",&frame[3] );    // errorcode 0 if ok
+        xmlerr += xframe->QueryDoubleAttribute( "A",&frame[KUKA_FRAME_A] );    // errorcode 0 if ok
 
-        xmlerr += xframe->QueryDoubleAttribute( "B",&frame[4] );
+        xmlerr += xframe->QueryDoubleAttribute( "B",&frame[KUKA_FRAME_B] );
 
-        xmlerr += xframe->QueryDoubleAttribute( "C",&frame[5] );
+        xmlerr += xframe->QueryDoubleAttribute( "C",&frame[KUKA_FRAME_C] );
 
         if (xmlerr != 0)
         {
@@ -130,17 +130,17 @@ void KukaResponse::parse(boost::asio::streambuf &message)
 
         int xmlerr = 0;
 
-        xmlerr += axframe->QueryDoubleAttribute( "A1",&axis[0] );    // errorcode 0 if ok
+        xmlerr += axframe->QueryDoubleAttribute( "A1",&axis[KUKA_AXIS_A1] );    // errorcode 0 if ok
 
-        xmlerr += axframe->QueryDoubleAttribute( "A2",&axis[1] );
+        xmlerr += axframe->QueryDoubleAttribute( "A2",&axis[KUKA_AXIS_A2] );
 
-        xmlerr += axframe->QueryDoubleAttribute( "A3",&axis[2] );
+        xmlerr += axframe->QueryDoubleAttribute( "A3",&axis[KUKA_AXIS_A3] );
 
-        xmlerr += axframe->QueryDoubleAttribute( "A4",&axis[3] );    // errorcode 0 if ok
+        xmlerr += axframe->QueryDoubleAttribute( "A4",&axis[KUKA_AXIS_A4] );    // errorcode 0 if ok
 
-        xmlerr += axframe->QueryDoubleAttribute( "A5",&axis[4] );
+        xmlerr += axframe->QueryDoubleAttribute( "A5",&axis[KUKA_AXIS_A5] );
 
-        xmlerr += axframe->QueryDoubleAttribute( "A6",&axis[5] );
+        xmlerr += axframe->QueryDoubleAttribute( "A6",&axis[KUKA_AXIS_A6] );
 
         if (xmlerr != 0)
         {

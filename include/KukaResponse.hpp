@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include <constants.hpp>
 #include <XMLParser.hpp>
 
 using boost::lexical_cast;

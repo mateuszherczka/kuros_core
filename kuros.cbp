@@ -50,6 +50,7 @@
 		<Unit filename="include/ServerConfig.hpp" />
 		<Unit filename="include/ThreadSafeQueue.hpp" />
 		<Unit filename="include/XMLParser.hpp" />
+		<Unit filename="include/constants.hpp" />
 		<Unit filename="include/kuros.h" />
 		<Unit filename="include/types.hpp" />
 		<Unit filename="src/DataFile.cpp" />
