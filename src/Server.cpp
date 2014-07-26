@@ -25,7 +25,7 @@ void Server::sendTrajectory(const info_vec &info, const trajectory_vec &trajecto
     command.formatTrajectory(*message, info, trajectory);   // first: infovector<int>, second: framevector<int>
 
     messageQueue.push(message);
-} // TODO: implement sendTrajectory()
+}
 
 void Server::startListening()
 {
