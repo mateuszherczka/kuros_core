@@ -9,6 +9,7 @@
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <constants.hpp>
 #include <types.hpp>
 
 using std::string;
@@ -28,7 +29,7 @@ class DataFile
         Load space delimited file with each line containing <framesize> doubles.
         Any line which parses to a different result is ignored.
         */
-        void loadSDFrames(const string& filename, trajectory_vec &trajectory, size_t framesize = 6);
+        void loadSDFrames(const string& filename, trajectory_vec &trajectory, size_t framesize = KUKA_FRAME_SIZE);
 
         double roundToPrecision(double val);
 
