@@ -4,7 +4,7 @@
 /*
 Size of info vector to and from robot.
 */
-const int KUKA_INFO_SIZE = 8;       // to robot
+const int KUKA_INFO_SIZE = 7;       // to robot
 const int KUKA_RSP_INFO_SIZE = 3;   // response from robot
 
 const int KUKA_FRAME_SIZE = 6;  // frame size
@@ -19,13 +19,13 @@ const int KUKA_RUN    = 3;
 const int KUKA_VEL    = 4;
 const int KUKA_TOL    = 5;
 const int KUKA_FRAMETYPE  = 6;
-const int KUKA_FRAMECOUNT = 7;
+//const int KUKA_FRAMECOUNT = 7; not for user
 
 /*
 Indexes for info vector response from robot.
 */
 const int KUKA_RSP_STATUS = 0;
-const int KUKA_RSP_ID     = 1;
+const int KUKA_RSP_TRAJID = 1;
 const int KUKA_RSP_TICK   = 2;
 
 /*

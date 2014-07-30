@@ -4,6 +4,7 @@
 #include <types.hpp>
 #include <constants.hpp>
 #include <boost/asio.hpp>
+#include <boost/lexical_cast.hpp>
 
 class KukaCommand
 {
@@ -23,8 +24,10 @@ class KukaCommand
 
         /*
             message: a streambuf to fill
-            info:   <RMode RMs Id Run Vel FrameType FrameCount>
+            info:   <RMode RMs Id Run Vel FrameType>
             trajectory:  vector of several frames <X Y Z A B C>
+
+            trajectory.size() is used as framecount, make sure frames are valid!
         */
         void formatTrajectory(boost::asio::streambuf &message, const info_vec &info , const trajectory_vec &trajectory);
 

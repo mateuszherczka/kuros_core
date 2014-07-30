@@ -177,10 +177,7 @@ void Server::writeMessage(socket_ptr sock)
         {
 
             streambuf_ptr message;
-            messageQueue.wait_and_pop(message); // lets try this instead of:
-
-            //streambuf_ptr message = *messageQueue.wait_and_pop();
-
+            messageQueue.wait_and_pop(message);
             boost::asio::write(*sock, *message);
 
             message.reset();    // TODO: is this how to cleanup? is the streambuf deleted now?

@@ -7,23 +7,20 @@ KukaCommand::~KukaCommand() {}
 void KukaCommand::formatTrajectory(boost::asio::streambuf &message, const info_vec &info , const trajectory_vec &trajectory)
 {
 
-    // TODO: if this is a fact, something is crap further up the line
-    //if (info[5] != trajectory.size()) {cerr << "Warning! Size of trajectory vector doesn't match framecount in info vector!" << endl; }
-
     std::ostream to_message_stream(&message);
 
     // doc tag
     to_message_stream   << "<ExternalData>\r\n";
 
     // info part
-    to_message_stream   << "<RMode>" << info[KUKA_RMODE] << "</Mode>\r\n";
+    to_message_stream   << "<RMode>" << info[KUKA_RMODE] << "</RMode>\r\n";
     to_message_stream   << "<RMs>" << info[KUKA_RMS] << "</RMs>\r\n";
     to_message_stream   << "<Id>" << info[KUKA_TRAJID] << "</Id>\r\n";
     to_message_stream   << "<Run>" << info[KUKA_RUN] << "</Run>\r\n";
     to_message_stream   << "<Vel>" << info[KUKA_VEL] << "</Vel>\r\n";
     to_message_stream   << "<Tol>" << info[KUKA_TOL] << "</Tol>\r\n";
     to_message_stream   << "<FrameType>" << info[KUKA_FRAMETYPE] << "</FrameType>\r\n";
-    to_message_stream   << "<FrameCount>" << info[KUKA_FRAMECOUNT] << "</FrameCount>\r\n";
+    to_message_stream   << "<FrameCount>" << boost::lexical_cast<int>(trajectory.size()) << "</FrameCount>\r\n";
 
     // trajectory
     for (const frame_vec &frame : trajectory)
