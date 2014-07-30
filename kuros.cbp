@@ -43,6 +43,7 @@
 			<Add library="boost_system" />
 			<Add library="boost_thread" />
 		</Linker>
+		<Unit filename="include/BlockingServer.hpp" />
 		<Unit filename="include/DataFile.hpp" />
 		<Unit filename="include/KukaCommand.hpp" />
 		<Unit filename="include/KukaResponse.hpp" />
@@ -53,6 +54,7 @@
 		<Unit filename="include/constants.hpp" />
 		<Unit filename="include/kuros.h" />
 		<Unit filename="include/types.hpp" />
+		<Unit filename="src/BlockingServer.cpp" />
 		<Unit filename="src/DataFile.cpp" />
 		<Unit filename="src/KukaCommand.cpp" />
 		<Unit filename="src/KukaResponse.cpp" />

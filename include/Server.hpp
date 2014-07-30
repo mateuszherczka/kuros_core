@@ -48,11 +48,11 @@ class Server
 
         /*
         handleResponse() is called from a separate response thread.
-        There is a queue between the socket and this call.
-        Still, if you expect a 12ms stream of responses, it's probably a good idea
-        to deal with the response swiftly.
+        There is a queue between the socket and this call. Still, handleResponse()
+        blocks the thread until return. If you expect a 12ms stream of responses,
+        it's probably a good idea to deal with the response swiftly.
         */
-        virtual void handleResponse() = 0; // This is mandatory to implement in derived class
+        virtual void handleResponse(const KukaResponse &response) = 0; // This is mandatory to implement in derived class
         virtual void handleDisconnect() = 0; // This is mandatory to implement in derived class
 
         // ---------------------------------------------------------------------------
@@ -76,7 +76,8 @@ class Server
 
     protected:
 
-        KukaResponse response;  // accesible to derived class which implements handleResponse
+        ThreadSafeQueue<streambuf_ptr> messageQueue;
+
 
     private:
 
@@ -85,6 +86,7 @@ class Server
         // ---------------------------------------------------------------------------
 
         bool connected = false;         // breaks read,write and onresponse loops when set to false
+        ThreadSafeQueue<streambuf_ptr> responseQueue;
 
         int invalidParseCount = 0;      // handy counters
         int readMessageCount = 0;
@@ -92,10 +94,7 @@ class Server
 
         // XML parsers
         ServerConfig serverConfig;
-        KukaCommand command;
-
-        ThreadSafeQueue<streambuf_ptr> messageQueue;
-        ThreadSafeQueue<streambuf_ptr> responseQueue;
+        //KukaCommand command;
 
         // ---------------------------------------------------------------------------
         // Private Methods
@@ -112,6 +111,11 @@ class Server
         Blocks until connection ends.
         */
         void onResponse(socket_ptr sock);
+
+        /*
+        To be hidden by a derived class.
+        */
+        void callResponseMethods(const KukaResponse &response);
 
         /*
         Specify socket pointer.

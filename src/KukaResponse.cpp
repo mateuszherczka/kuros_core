@@ -177,7 +177,7 @@ std::vector<double> KukaResponse::getAxis()
     return axis;
 }
 
-void KukaResponse::printValues()
+void KukaResponse::printValues() const
 {
 
     cout << "Info: ";

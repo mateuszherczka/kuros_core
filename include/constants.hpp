@@ -8,6 +8,7 @@ const int KUKA_INFO_SIZE = 7;       // to robot
 const int KUKA_RSP_INFO_SIZE = 3;   // response from robot
 
 const int KUKA_FRAME_SIZE = 6;  // frame size
+const int KUKA_AXIS_SIZE = 6;  // frame size
 
 /*
 Indexes for info vector parameters to robot.
@@ -27,6 +28,16 @@ Indexes for info vector response from robot.
 const int KUKA_RSP_STATUS = 0;
 const int KUKA_RSP_TRAJID = 1;
 const int KUKA_RSP_TICK   = 2;
+
+/*
+Robot status
+*/
+const int KUKA_NOSTATUS = 0;
+const int KUKA_READY = 1;
+const int KUKA_TRAJ_START = 2;
+// status 3 work in progress
+const int KUKA_TRAJ_DONE = 4;
+const int KUKA_STREAM = 5;
 
 /*
 Indexes for frame vector to and from robot.

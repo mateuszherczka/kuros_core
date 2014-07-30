@@ -50,7 +50,7 @@ class KukaResponse : public XMLParser
         */
         std::vector<double> getAxis();
 
-        void printValues();
+        void printValues() const;
 
     protected:
 

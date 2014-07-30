@@ -22,6 +22,7 @@ void Server::sendTrajectory(const info_vec &info, const trajectory_vec &trajecto
 {
 
     streambuf_ptr message(new boost::asio::streambuf);
+    KukaCommand command;
     command.formatTrajectory(*message, info, trajectory);   // first: infovector<int>, second: framevector<int>
 
     messageQueue.push(message);
@@ -72,24 +73,31 @@ void Server::onResponse(socket_ptr sock)
             responseQueue.wait_and_pop(message);    // blocks until somethin is in the queue
 
             // we have a message, parse xml and do something
+            KukaResponse response;
             response.parse(*message);
             if (response.isValid())     // call user defined handle response only if parser has some success
             {
-                handleResponse();
+                callResponseMethods(response);     // this can be hidden by a derived class
             }
             else
             {
                 ++invalidParseCount;
+                cerr << "Warning! Invalid response, no response handler invoked! Total " << invalidParseCount << " invalid responses received." << endl;
             }
 
             message.reset();
         }
         catch (std::exception &e)
         {
-            cout << "OnResponse exception: " << e.what() << endl;
+            cerr << "OnResponse exception: " << e.what() << endl;
         }
     }
 }   // separate thread
+
+void Server::callResponseMethods(const KukaResponse &response)
+{
+    handleResponse(response);
+}
 
 void Server::startListening(unsigned short port)
 {
