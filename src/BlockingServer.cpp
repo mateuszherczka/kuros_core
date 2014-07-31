@@ -42,10 +42,15 @@ void BlockingServer::callResponseMethods(const KukaResponse &response)
 
 void BlockingServer::trajectoryDone(const KukaResponse &response)
 {
-    if (trajectoryPending==true && response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)
+    if (trajectoryPending && response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)
     {
-        boost::lock_guard<boost::mutex> lock(sendBlockMutex);
-        trajectoryPending=false;
+        {
+            boost::lock_guard<boost::mutex> lock(sendBlockMutex);
+            trajectoryPending=false;
+        }
+        sendBlockCondition.notify_one();
     }
-    sendBlockCondition.notify_one();
+
+
+
 }

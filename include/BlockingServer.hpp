@@ -25,7 +25,7 @@ private:
 
     int robotState = 0;
 
-    void callResponseMethods(const KukaResponse &response);    // hiding parent function
+    void callResponseMethods(const KukaResponse &response) override;    // hiding parent function
 
     void trajectoryDone(const KukaResponse &response);
 

@@ -1,6 +1,10 @@
 #ifndef CONSTANTS_HPP_INCLUDED
 #define CONSTANTS_HPP_INCLUDED
 
+
+const int NO = 0;
+const int YES = 1;
+
 /*
 Size of info vector to and from robot.
 */
@@ -22,12 +26,20 @@ const int KUKA_TOL    = 5;
 const int KUKA_FRAMETYPE  = 6;
 //const int KUKA_FRAMECOUNT = 7; not for user
 
+const int KUKA_CARTESIAN = 1;
+const int KUKA_AXIS = 2;
 /*
 Indexes for info vector response from robot.
 */
 const int KUKA_RSP_STATUS = 0;
 const int KUKA_RSP_TRAJID = 1;
 const int KUKA_RSP_TICK   = 2;
+
+/*
+Response modes.
+*/
+const int KUKA_RMODE_BASIC = 1; // ready, exiting, traj start, traj end.
+const int KUKA_RMODE_STREAM = 3; // BASIC + stream every NN ms
 
 /*
 Robot status

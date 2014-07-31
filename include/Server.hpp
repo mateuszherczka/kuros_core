@@ -113,9 +113,11 @@ class Server
         void onResponse(socket_ptr sock);
 
         /*
-        To be hidden by a derived class.
+        To be overridden by a derived class.
+        Provides a way for server to take internal action
+        on responses, in addition to calling handleResponse().
         */
-        void callResponseMethods(const KukaResponse &response);
+        virtual void callResponseMethods(const KukaResponse &response);
 
         /*
         Specify socket pointer.

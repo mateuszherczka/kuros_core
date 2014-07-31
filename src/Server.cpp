@@ -44,8 +44,9 @@ void Server::loadConfig()
 void Server::closeConnection(socket_ptr sock)
 {
     sock.reset();
-    connected = false;
+    // TODO: cleanup after connection close
     handleDisconnect();
+    connected = false;
 }
 
 void Server::closeConnection()
@@ -65,12 +66,13 @@ bool Server::sendQueueEmpty()
 
 void Server::onResponse(socket_ptr sock)
 {
+    cout << "Server response thread started." << endl;
     while (sock->is_open() && connected)
     {
         try
         {
             streambuf_ptr message;
-            responseQueue.wait_and_pop(message);    // blocks until somethin is in the queue
+            responseQueue.wait_and_pop(message);    // blocks until something is in the queue
 
             // we have a message, parse xml and do something
             KukaResponse response;
@@ -85,13 +87,15 @@ void Server::onResponse(socket_ptr sock)
                 cerr << "Warning! Invalid response, no response handler invoked! Total " << invalidParseCount << " invalid responses received." << endl;
             }
 
-            message.reset();
+            //message.reset();
         }
         catch (std::exception &e)
         {
             cerr << "OnResponse exception: " << e.what() << endl;
         }
     }
+
+    cout << "Server response thread exiting." << endl;
 }   // separate thread
 
 void Server::callResponseMethods(const KukaResponse &response)
@@ -125,7 +129,7 @@ void Server::startListening(unsigned short port)
     connected = true;
 
 
-    cout << "Waiting 1 seconds." << endl;
+    //cout << "Waiting 1 seconds." << endl;
     boost::this_thread::sleep( boost::posix_time::seconds(1) );
 
 }
@@ -199,6 +203,8 @@ void Server::writeMessage(socket_ptr sock)
         closeConnection(sock);
         return;
     }
+
+    cout << "Server response thread exiting." << endl;
 };     // separate thread
 
 /*
