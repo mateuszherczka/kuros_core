@@ -6,7 +6,9 @@ Server::Server()
 }
 
 Server::~Server()
-{}
+{
+
+}
 
 /*  deprecated
 void Server::sendPose(const info_vec &info, const frame_vec &frame)
@@ -20,17 +22,32 @@ void Server::sendPose(const info_vec &info, const frame_vec &frame)
 
 void Server::sendTrajectory(const info_vec &info, const trajectory_vec &trajectory)
 {
+    if (!isConnected())
+    {
+        cerr << "Can't send because Server not connected to anything." << endl;
+        return;
+    }
 
     streambuf_ptr message(new boost::asio::streambuf);
     KukaCommand command;
     command.formatTrajectory(*message, info, trajectory);   // first: infovector<int>, second: framevector<int>
 
+    //cout << "sendTrajectory about to push a message." << endl;
     messageQueue.push(message);
+
+    //cout << "sendTrajectory pushed message." << endl;
 }
 
 void Server::startListening()
 {
-    startListening(serverConfig.getPort());
+    if (isConnected())
+    {
+        cerr << "Server is connected to a client. Disconnect before starting to listen for next one." << endl;
+    }
+    else
+    {
+        startListening(serverConfig.getPort());
+    }
 }
 
 void Server::loadConfig()
@@ -43,51 +60,78 @@ void Server::loadConfig()
 
 void Server::closeConnection(socket_ptr sock)
 {
-    sock.reset();
-    // TODO: cleanup after connection close
-    handleDisconnect();
+    connectionOFF();  // threadsafe setting of connected = false
+    sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send);    // recommended by boost
+    sock->close();
+
+    // stop queues, which should terminate write and response threads
+    messageQueue.reject();
+    responseQueue.reject();
+
+    sock.reset();           // deallocate socket
+    handleDisconnect();     // user can do something
+
+    cout << "Server closed connection." << endl;
+}
+
+void Server::resetData()
+{
+    boost::lock_guard<boost::mutex> guard(cleanupMutex);
+    invalidParseCount   = 0;
+    readMessageCount    = 0;
+    writtenMessageCount = 0;
+}
+
+void Server::connectionOFF()
+{
+    boost::lock_guard<boost::mutex> guard(connectedMutex);
     connected = false;
 }
 
-void Server::closeConnection()
+void Server::connectionON()
 {
-    connected = false;
+    boost::lock_guard<boost::mutex> guard(connectedMutex);
+    connected = true;
 }
 
 bool Server::isConnected()
 {
+    boost::lock_guard<boost::mutex> guard(connectedMutex);
     return connected;
 }
 
-bool Server::sendQueueEmpty()
-{
-    return messageQueue.empty();
-}
+//bool Server::sendQueueEmpty()
+//{
+//    boost::lock_guard<boost::mutex> guard(queueMutex);
+//    return messageQueue.empty();
+//}
 
 void Server::onResponse(socket_ptr sock)
 {
     cout << "Server response thread started." << endl;
-    while (sock->is_open() && connected)
+
+    while (isConnected())
     {
         try
         {
             streambuf_ptr message;
-            responseQueue.wait_and_pop(message);    // blocks until something is in the queue
+            responseQueue.wait_and_pop(message);    // blocks until something is in the queue or disconnencted
 
-            // we have a message, parse xml and do something
-            KukaResponse response;
-            response.parse(*message);
-            if (response.isValid())     // call user defined handle response only if parser has some success
+            if (isConnected())  // might have disconnected in the meanwhile
             {
-                callResponseMethods(response);     // this can be hidden by a derived class
+                // we have a message, parse xml and do something
+                KukaResponse response;
+                response.parse(*message);
+                if (response.isValid())     // call user defined handle response only if parser has some success
+                {
+                    callResponseMethods(response);     // this can be hidden by a derived class
+                }
+                else
+                {
+                    ++invalidParseCount;
+                    cerr << "Warning! Invalid response, no response handler invoked! Total " << invalidParseCount << " invalid responses received." << endl;
+                }
             }
-            else
-            {
-                ++invalidParseCount;
-                cerr << "Warning! Invalid response, no response handler invoked! Total " << invalidParseCount << " invalid responses received." << endl;
-            }
-
-            //message.reset();
         }
         catch (std::exception &e)
         {
@@ -107,6 +151,14 @@ void Server::startListening(unsigned short port)
 {
     // TODO: use boost error handling here
 
+    /*
+    If previously connected, threads and socket shall be dead,
+    queues and data reset.
+    */
+    messageQueue.reset();
+    responseQueue.reset();
+    resetData();    // counters etc
+
     boost::asio::io_service io_service;
     tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), port));
 
@@ -121,61 +173,53 @@ void Server::startListening(unsigned short port)
     readMessageCount = 0;
     writtenMessageCount = 0;
 
+    connectionON();
+
     // spawn
     boost::thread read_thread(&Server::readMessage,this, sock);
     boost::thread write_thread(&Server::writeMessage,this, sock);
     boost::thread response_thread(&Server::onResponse,this, sock);
 
-    connected = true;
-
-
-    //cout << "Waiting 1 seconds." << endl;
+    // block for a second
     boost::this_thread::sleep( boost::posix_time::seconds(1) );
 
 }
 
 void Server::readMessage(socket_ptr sock)
 {
-    // TODO: is lock read necessary (probably not)
     cout << "Server read thread started." << endl;
-    try
+
+    while (isConnected())
     {
-
-        while (sock->is_open() && connected)
+        try
         {
+            streambuf_ptr message(new boost::asio::streambuf);
 
-            //boost::asio::streambuf message(serverConfig.getMaxBufferSize());
-            try
+            boost::system::error_code error;
+            boost::asio::read_until(*sock, *message, serverConfig.getEndString(), error);   // waits for incoming data or eof
+
+            if (error == boost::asio::error::eof)
             {
-
-                streambuf_ptr message(new boost::asio::streambuf);
-
-                boost::system::error_code error;
-                boost::asio::read_until(*sock, *message, serverConfig.getEndString(), error);
-
-                if (error == boost::asio::error::eof)
+                if (isConnected())
                 {
-                    cout << "Client disconnected." << endl;
                     closeConnection(sock);
-                    return;
                 }
 
-                responseQueue.push(message);
+                cout << "Client disconnected, server read thread exiting." << endl;
+                return;
+            }
 
-                ++readMessageCount;
-            }
-            catch (std::exception &e)   // complain but don't quit
-            {
-                cout << "ReadMessage exception (no matching xml end element?): " << e.what() << endl;
-            }
+            responseQueue.push(message);
+
+            ++readMessageCount;
+        }
+        catch (std::exception &e)   // complain but don't quit
+        {
+            cout << "ReadMessage exception: " << e.what() << endl;
         }
     }
-    catch (std::exception &e)   // TODO: this is useless right now, fix
-    {
-        cout << "Fatal reading exception: " << e.what() << endl;
-        closeConnection(sock);
-        return;
-    }
+
+    cout << "Server read thread exiting." << endl;
 }  // separate thread
 
 void Server::writeMessage(socket_ptr sock)
@@ -185,26 +229,27 @@ void Server::writeMessage(socket_ptr sock)
 
     try
     {
-        while (sock->is_open() && connected)
+        while (isConnected())
         {
-
+            //cout << "writeMessage waiting." << endl;
             streambuf_ptr message;
-            messageQueue.wait_and_pop(message);
-            boost::asio::write(*sock, *message);
-
-            message.reset();    // TODO: is this how to cleanup? is the streambuf deleted now?
-
-            ++writtenMessageCount;
+            messageQueue.wait_and_pop(message); // wait until something in queue or disconnect
+            //cout << "writeMessage awaking." << endl;
+            if (isConnected())   // might have disconnected
+            {
+                boost::asio::write(*sock, *message);
+                ++writtenMessageCount;
+                //cout << "writeMessage wrote a message." << endl;
+            }
         }
     }
     catch (std::exception &e)
     {
         cout << "Writing exception: " << e.what() << endl;
-        closeConnection(sock);
-        return;
     }
 
-    cout << "Server response thread exiting." << endl;
+    cout << "Server write thread exiting." << endl;
+
 };     // separate thread
 
 /*
@@ -215,3 +260,6 @@ const char * Server::streambufToPtr(boost::asio::streambuf &message)
     const char* bufPtr=boost::asio::buffer_cast<const char*>(message.data());
     return bufPtr;
 }
+
+
+// while (sock->is_open() && connected)

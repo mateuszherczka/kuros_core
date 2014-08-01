@@ -15,6 +15,11 @@ public:
 
     void blockSendTrajectory(const info_vec &info, const trajectory_vec &trajectory);
 
+    /*
+    Also breaks send block on disconnect.
+    */
+    void closeConnection(socket_ptr sock) override;
+
 protected:
 
 private:
@@ -25,9 +30,13 @@ private:
 
     int robotState = 0;
 
-    void callResponseMethods(const KukaResponse &response) override;    // hiding parent function
+    void callResponseMethods(const KukaResponse &response) override;
 
     void trajectoryDone(const KukaResponse &response);
+
+    void pendingON();
+    void pendingOFF();
+    bool isPending();
 
 };
 

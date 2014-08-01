@@ -7,6 +7,9 @@
 #include <string>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/lock_guard.hpp>
 
 #include <ThreadSafeQueue.hpp>
 
@@ -63,21 +66,28 @@ class Server
 
         void sendTrajectory(const info_vec &info, const trajectory_vec &trajectory);
 
-        void startListening();
+        virtual void startListening();  // can be overridden
 
         void loadConfig();
 
-        void closeConnection();
-        void closeConnection(socket_ptr sock);
+        virtual void closeConnection(socket_ptr sock);
 
         bool isConnected();
 
-        bool sendQueueEmpty();
+        //bool sendQueueEmpty();
 
     protected:
 
         ThreadSafeQueue<streambuf_ptr> messageQueue;
+        ThreadSafeQueue<streambuf_ptr> responseQueue;
 
+        /*
+        Helpers for closeConnection()
+        */
+        void connectionOFF();
+        void connectionON();
+
+        void resetData();
 
     private:
 
@@ -86,7 +96,6 @@ class Server
         // ---------------------------------------------------------------------------
 
         bool connected = false;         // breaks read,write and onresponse loops when set to false
-        ThreadSafeQueue<streambuf_ptr> responseQueue;
 
         int invalidParseCount = 0;      // handy counters
         int readMessageCount = 0;
@@ -94,7 +103,10 @@ class Server
 
         // XML parsers
         ServerConfig serverConfig;
-        //KukaCommand command;
+
+        boost::mutex connectedMutex;
+        boost::mutex cleanupMutex;
+        //boost::mutex startupMutex;
 
         // ---------------------------------------------------------------------------
         // Private Methods
@@ -135,6 +147,7 @@ class Server
         Returns a pointer to buffer inside streambuf.
         */
         const char * streambufToPtr(boost::asio::streambuf &message);
+
 
 
 };

@@ -6,7 +6,18 @@
 #include <queue>
 #include <memory>
 
-// From C++ Concurrency in Action
+#include <iostream>
+
+using std::cout;
+using std::endl;
+
+/*
+
+Based on C++ Concurrency in Action but
+with accept, reject and reset added.
+
+*/
+
 
 template<typename T>
 
@@ -21,6 +32,8 @@ private:
     std::queue<T> data_queue;
 
     std::condition_variable data_cond;
+
+    bool canAccept = true;
 
 public:
 
@@ -60,11 +73,17 @@ public:
 
         std::unique_lock<std::mutex> lk(mut);
 
-        data_cond.wait(lk,[this]{return !data_queue.empty();});
+        data_cond.wait(lk,[this] {return !data_queue.empty() || !canAccept;});
 
-        value=data_queue.front();
-
-        data_queue.pop();
+        if (canAccept)
+        {
+            value=data_queue.front();
+            data_queue.pop();
+        }
+//        else
+//        {
+//            cout << "ThreadsafeQueue not accepting." << endl;
+//        }
 
     }
 
@@ -73,17 +92,20 @@ public:
     std::shared_ptr<T> wait_and_pop()
 
     {
-
         std::unique_lock<std::mutex> lk(mut);
 
-        data_cond.wait(lk,[this]{return !data_queue.empty();});
+        data_cond.wait(lk,[this] {return !data_queue.empty() || !canAccept;});
 
-        std::shared_ptr<T> res(std::make_shared<T>(data_queue.front()));
-
-        data_queue.pop();
-
-        return res;
-
+        if (canAccept)
+        {
+            std::shared_ptr<T> res(std::make_shared<T>(data_queue.front()));
+            data_queue.pop();
+            return res;
+        }
+        else
+        {
+            return std::shared_ptr<T>();
+        }
     }
 
 
@@ -94,9 +116,10 @@ public:
 
         std::lock_guard<std::mutex> lk(mut);
 
-        if(data_queue.empty)
-
+        if(data_queue.empty() || !canAccept)
+        {
             return false;
+        }
 
         value=data_queue.front();
 
@@ -112,9 +135,10 @@ public:
 
         std::lock_guard<std::mutex> lk(mut);
 
-        if(data_queue.empty())
-
-            return std::shared_ptr<T>();
+        if(data_queue.empty() || !canAccept)
+        {
+            return std::shared_ptr<T>();    // return empty shared_ptr on failure
+        }
 
         std::shared_ptr<T> res(std::make_shared<T>(data_queue.front()));
 
@@ -134,6 +158,48 @@ public:
 
         return data_queue.empty();
 
+    }
+
+    bool accepting() const
+
+    {
+        std::lock_guard<std::mutex> lk(mut);
+
+        return canAccept;
+
+    }
+
+    void reject()
+    {
+        {
+            std::lock_guard<std::mutex> lk(mut);
+            canAccept = false;
+        }
+        data_cond.notify_all();
+    }
+
+    void accept()
+    {
+        {
+            std::lock_guard<std::mutex> lk(mut);
+            canAccept = true;
+        }
+        data_cond.notify_all();
+    }
+
+    void reset()
+    {
+        {
+            std::lock_guard<std::mutex> lk(mut);
+
+            while(!data_queue.empty())
+            {
+                data_queue.pop();
+            }
+
+            canAccept = true;
+        }
+        data_cond.notify_all(); // TODO: are all of those notifys necessary?
     }
 
 };
