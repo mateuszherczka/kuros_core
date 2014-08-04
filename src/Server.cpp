@@ -24,7 +24,8 @@ void Server::sendTrajectory(const info_vec &info, const trajectory_vec &trajecto
 {
     if (!isConnected())
     {
-        cerr << "Can't send because Server not connected to anything." << endl;
+        cout << "Can't send because server not connected." << endl;
+        //startListening();
         return;
     }
 
@@ -40,14 +41,16 @@ void Server::sendTrajectory(const info_vec &info, const trajectory_vec &trajecto
 
 void Server::startListening()
 {
-    if (isConnected())
-    {
-        cerr << "Server is connected to a client. Disconnect before starting to listen for next one." << endl;
-    }
-    else
-    {
-        startListening(serverConfig.getPort());
-    }
+
+    while (busy())
+        {
+            // block until it's possible to connect again
+            cout << "Server connected. Waiting..." << endl;
+            boost::this_thread::sleep( boost::posix_time::seconds(1) );
+        }
+
+    startListening(serverConfig.getPort());
+
 }
 
 void Server::loadConfig()
@@ -60,44 +63,115 @@ void Server::loadConfig()
 
 void Server::closeConnection(socket_ptr sock)
 {
-    connectionOFF();  // threadsafe setting of connected = false
-    sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send);    // recommended by boost
-    sock->close();
+    if (!isConnected())
+    {
+        cerr << "Server trying to close connection but not connected." << endl;
+        //return;
+    }
 
+    cout << "Server closing connection." << endl;
+    //cout << "CloseConnection setting to false." << endl;
+    setConnected(false);  // threadsafe setting of connected = false
+    //cout << "CloseConnection shutting down socket." << endl;
+    sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send);    // recommended by boost
+    //sock->close();
+    //cout << "CloseConnection stopping queues." << endl;
     // stop queues, which should terminate write and response threads
     messageQueue.reject();
     responseQueue.reject();
-
+    //cout << "CloseConnection resetting socket and calling handleDIsconnect()." << endl;
     sock.reset();           // deallocate socket
     handleDisconnect();     // user can do something
-
     cout << "Server closed connection." << endl;
 }
 
 void Server::resetData()
 {
-    boost::lock_guard<boost::mutex> guard(cleanupMutex);
+    //boost::lock_guard<boost::mutex> guard(cleanupMutex);
+    std::lock_guard<std::mutex> lk(cleanupMutex);
     invalidParseCount   = 0;
     readMessageCount    = 0;
     writtenMessageCount = 0;
 }
 
-void Server::connectionOFF()
+void Server::setConnectionOFF()
 {
-    boost::lock_guard<boost::mutex> guard(connectedMutex);
+    //boost::lock_guard<boost::mutex> guard(connectedMutex);
+    std::lock_guard<std::mutex> lk(connectedMutex);
     connected = false;
 }
 
-void Server::connectionON()
+void Server::setConnectionON()
 {
-    boost::lock_guard<boost::mutex> guard(connectedMutex);
+    //boost::lock_guard<boost::mutex> guard(connectedMutex);
+    std::lock_guard<std::mutex> lk(connectedMutex);
     connected = true;
+}
+
+void Server::setConnected(bool onoff)
+{
+    //boost::lock_guard<boost::mutex> guard(connectedMutex);
+    std::lock_guard<std::mutex> lk(connectedMutex);
+    connected = onoff;
+}
+
+void Server::setReadThreadAlive(bool onoff)
+{
+    //boost::lock_guard<boost::mutex> guard(connectedMutex);
+    //std::lock_guard<std::mutex> lk(connectedMutex);
+    readThreadAlive = onoff;
+    if (onoff)
+    {
+        cout << "Read thread started." << endl;
+    }
+    else
+    {
+        cout << "Read thread stopped." << endl;
+    }
+}
+
+void Server::setWriteThreadAlive(bool onoff)
+{
+    //boost::lock_guard<boost::mutex> guard(connectedMutex);
+    //std::lock_guard<std::mutex> lk(connectedMutex);
+    writeThreadAlive = onoff;
+    if (onoff)
+    {
+        cout << "Write thread started." << endl;
+    }
+    else
+    {
+        cout << "Write thread stopped." << endl;
+    }
+}
+
+void Server::setResponseThreadAlive(bool onoff)
+{
+    //boost::lock_guard<boost::mutex> guard(connectedMutex);
+    //std::lock_guard<std::mutex> lk(connectedMutex);
+    responseThreadAlive = onoff;
+    if (onoff)
+    {
+        cout << "Response thread started." << endl;
+    }
+    else
+    {
+        cout << "Response thread stopped." << endl;
+    }
 }
 
 bool Server::isConnected()
 {
-    boost::lock_guard<boost::mutex> guard(connectedMutex);
+    //boost::lock_guard<boost::mutex> guard(connectedMutex);
+    std::lock_guard<std::mutex> lk(connectedMutex);
     return connected;
+}
+
+bool Server::busy()
+{
+    //boost::lock_guard<boost::mutex> guard(connectedMutex);
+    std::lock_guard<std::mutex> lk(connectedMutex);
+    return (connected || readThreadAlive || writeThreadAlive || responseThreadAlive);
 }
 
 //bool Server::sendQueueEmpty()
@@ -108,7 +182,7 @@ bool Server::isConnected()
 
 void Server::onResponse(socket_ptr sock)
 {
-    cout << "Server response thread started." << endl;
+    setResponseThreadAlive(true);
 
     while (isConnected())
     {
@@ -139,7 +213,7 @@ void Server::onResponse(socket_ptr sock)
         }
     }
 
-    cout << "Server response thread exiting." << endl;
+    setResponseThreadAlive(false);
 }   // separate thread
 
 void Server::callResponseMethods(const KukaResponse &response)
@@ -169,25 +243,32 @@ void Server::startListening(unsigned short port)
 
     cout << "A client connected." << endl;
 
+//    boost::asio::socket_base::linger option;
+//    sock->get_option(option);
+//    bool is_set = option.enabled();
+//    unsigned short timeout = option.timeout();
+//    cout << "Socket options - is_set: " << is_set << " timeout: " << timeout << endl;
+
     invalidParseCount = 0;
     readMessageCount = 0;
     writtenMessageCount = 0;
 
-    connectionON();
+    setConnected(true);
+    //setConnectionON();
 
     // spawn
     boost::thread read_thread(&Server::readMessage,this, sock);
     boost::thread write_thread(&Server::writeMessage,this, sock);
     boost::thread response_thread(&Server::onResponse,this, sock);
 
-    // block for a second
+    // block for a second to let system get things rolling
     boost::this_thread::sleep( boost::posix_time::seconds(1) );
 
 }
 
 void Server::readMessage(socket_ptr sock)
 {
-    cout << "Server read thread started." << endl;
+    setReadThreadAlive(true);
 
     while (isConnected())
     {
@@ -200,12 +281,9 @@ void Server::readMessage(socket_ptr sock)
 
             if (error == boost::asio::error::eof)
             {
-                if (isConnected())
-                {
-                    closeConnection(sock);
-                }
-
-                cout << "Client disconnected, server read thread exiting." << endl;
+                cout << "Client disconnected." << endl;
+                closeConnection(sock);
+                setReadThreadAlive(false);
                 return;
             }
 
@@ -219,27 +297,34 @@ void Server::readMessage(socket_ptr sock)
         }
     }
 
-    cout << "Server read thread exiting." << endl;
+    setReadThreadAlive(false);
 }  // separate thread
 
 void Server::writeMessage(socket_ptr sock)
 {
-
-    cout << "Server write thread started." << endl;
+    setWriteThreadAlive(true);
 
     try
     {
         while (isConnected())
         {
+
             //cout << "writeMessage waiting." << endl;
             streambuf_ptr message;
             messageQueue.wait_and_pop(message); // wait until something in queue or disconnect
             //cout << "writeMessage awaking." << endl;
             if (isConnected())   // might have disconnected
             {
-                boost::asio::write(*sock, *message);
+                boost::system::error_code error;
+                boost::asio::write(*sock, *message, error);
                 ++writtenMessageCount;
                 //cout << "writeMessage wrote a message." << endl;
+                if (error == boost::asio::error::eof)
+                {
+                    cout << "Write thread discovered that client disconnected." << endl;
+                    setWriteThreadAlive(false);
+                    return;
+                }
             }
         }
     }
@@ -248,8 +333,7 @@ void Server::writeMessage(socket_ptr sock)
         cout << "Writing exception: " << e.what() << endl;
     }
 
-    cout << "Server write thread exiting." << endl;
-
+    setWriteThreadAlive(false);
 };     // separate thread
 
 /*

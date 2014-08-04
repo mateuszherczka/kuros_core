@@ -173,6 +173,10 @@ public:
     {
         {
             std::lock_guard<std::mutex> lk(mut);
+            while(!data_queue.empty())
+            {
+                data_queue.pop();
+            }
             canAccept = false;
         }
         data_cond.notify_all();

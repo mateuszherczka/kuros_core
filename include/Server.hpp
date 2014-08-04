@@ -5,11 +5,13 @@
 #include <istream>
 #include <ostream>
 #include <string>
+#include <mutex>
+
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/lock_guard.hpp>
+//#include <boost/thread/mutex.hpp>
+//#include <boost/thread/locks.hpp>
+//#include <boost/thread/lock_guard.hpp>
 
 #include <ThreadSafeQueue.hpp>
 
@@ -70,9 +72,9 @@ class Server
 
         void loadConfig();
 
-        virtual void closeConnection(socket_ptr sock);
-
         bool isConnected();
+
+        bool busy();
 
         //bool sendQueueEmpty();
 
@@ -81,11 +83,18 @@ class Server
         ThreadSafeQueue<streambuf_ptr> messageQueue;
         ThreadSafeQueue<streambuf_ptr> responseQueue;
 
+        void setReadThreadAlive(bool onoff);
+        void setWriteThreadAlive(bool onoff);
+        void setResponseThreadAlive(bool onoff);
+
+        virtual void closeConnection(socket_ptr sock);
+
         /*
-        Helpers for closeConnection()
+        Helpers for threadsafe setting of the connected flag.
         */
-        void connectionOFF();
-        void connectionON();
+        void setConnectionOFF();
+        void setConnectionON();
+        void setConnected(bool onoff);
 
         void resetData();
 
@@ -96,6 +105,13 @@ class Server
         // ---------------------------------------------------------------------------
 
         bool connected = false;         // breaks read,write and onresponse loops when set to false
+        /*
+        This server allows only one connenction at a time.
+        We want to make sure all threads are dead before allowing next connection.
+        */
+        bool readThreadAlive = false;
+        bool writeThreadAlive = false;
+        bool responseThreadAlive = false;
 
         int invalidParseCount = 0;      // handy counters
         int readMessageCount = 0;
@@ -104,8 +120,11 @@ class Server
         // XML parsers
         ServerConfig serverConfig;
 
-        boost::mutex connectedMutex;
-        boost::mutex cleanupMutex;
+        mutable std::mutex connectedMutex;
+        mutable std::mutex cleanupMutex;
+
+        //boost::mutex connectedMutex;
+        //boost::mutex cleanupMutex;
         //boost::mutex startupMutex;
 
         // ---------------------------------------------------------------------------

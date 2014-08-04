@@ -14,7 +14,9 @@ void BlockingServer::blockSendTrajectory(const info_vec &info, const trajectory_
 {
     if (!isConnected())
     {
-        cerr << "Can't blockSend because BlockingServer not connected to anything." << endl;
+        cout << "Can't send because server not connected." << endl;
+        startListening();
+
         return;
     }
 
@@ -25,31 +27,36 @@ void BlockingServer::blockSendTrajectory(const info_vec &info, const trajectory_
     messageQueue.push(message);
 
     // block until trajectoryPending is false again.
-    pendingON();
-    boost::unique_lock<boost::mutex> lock(sendBlockMutex);
-    while(trajectoryPending)
-    {
-        sendBlockCondition.wait(lock);
-    }
+    setPending(true);
+    //pendingON();
+//    boost::unique_lock<boost::mutex> lock(sendBlockMutex);
+    blockWhilePending();
+
+//    while (isPending())
+//    {
+//        boost::this_thread::sleep( boost::posix_time::milliseconds(10));
+//    }
 
     cout << "blockSend exiting." << endl;
 }
 
-void BlockingServer::pendingON()
+void BlockingServer::blockWhilePending()
 {
-    boost::lock_guard<boost::mutex> lock(sendBlockMutex);
-    trajectoryPending=true;
+    std::unique_lock<std::mutex> lk(sendBlockMutex);
+    sendBlockCondition.wait(lk,[this] {return !trajectoryPending;});
 }
 
-void BlockingServer::pendingOFF()
+void BlockingServer::setPending(bool onoff)
 {
-    boost::lock_guard<boost::mutex> lock(sendBlockMutex);
-    trajectoryPending=false;
+    //boost::lock_guard<boost::mutex> lock(sendBlockMutex);
+    std::lock_guard<std::mutex> lk(sendBlockMutex);
+    trajectoryPending=onoff;
 }
 
 bool BlockingServer::isPending()
 {
-    boost::lock_guard<boost::mutex> lock(sendBlockMutex);
+    //boost::lock_guard<boost::mutex> lock(sendBlockMutex);
+    std::lock_guard<std::mutex> lk(sendBlockMutex);
     return trajectoryPending;
 }
 
@@ -69,7 +76,7 @@ void BlockingServer::trajectoryDone(const KukaResponse &response)
 {
     if (isPending() && response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)
     {
-        pendingOFF();
+        setPending(false);
         sendBlockCondition.notify_one();
     }
 
@@ -77,26 +84,44 @@ void BlockingServer::trajectoryDone(const KukaResponse &response)
 
 void BlockingServer::closeConnection(socket_ptr sock)
 {
-    connectionOFF();  // threadsafe setting of connected = false
-
-     //break wait for pending trajectory
+    if (!isConnected())
     {
-            boost::lock_guard<boost::mutex> lock(sendBlockMutex);
-            trajectoryPending=false;
-            robotState = 0;
+        cerr << "BlockingServer trying to close connection but not connected." << endl;
+        //return;
     }
-    sendBlockCondition.notify_all();
 
+    cout << "BlockingServer closing connection." << endl;
 
-    sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send);    // recommended by boost
-    sock->close();
+    //cout << "BlockingServer closeConnection setting to false." << endl;
+    setConnected(false);  // threadsafe setting of connected = false
 
+    //cout << "BlockingServer closeConnection breaking pending ." << endl;
+    // break wait for pending trajectory
+    // TODO: crashes if done after socket close, boost bug?
+//    {
+//            boost::lock_guard<boost::mutex> lock(sendBlockMutex);
+//            trajectoryPending=false;
+//            //robotState = 0;
+//    }
+    //pendingOFF();
+    setPending(false);
+    sendBlockCondition.notify_one();
+
+    //cout << "BlockingServer stopping queues." << endl;
     // stop queues, which should terminate write and response threads
     messageQueue.reject();
     responseQueue.reject();
 
-    sock.reset();           // deallocate socket
-    handleDisconnect();     // user can do something
+    cout << "BlockingServer closeConnection shutting down socket." << endl;
+
+    sock->shutdown(boost::asio::ip::tcp::socket::shutdown_both);    // recommended by boost
+
+    //cout << "BlockingServer closeConnection trying to close socket." << endl;
+    //sock->close();
+
+    //cout << "BlockingServer closeConnection resetting socket and calling handleDisconnect." << endl;
+    //sock.reset();           // deallocate socket
 
     cout << "BlockingServer closed connection." << endl;
+    handleDisconnect();     // user can do something
 }
