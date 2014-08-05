@@ -12,11 +12,9 @@ BlockingServer::~BlockingServer()
 
 void BlockingServer::blockSendTrajectory(const info_vec &info, const trajectory_vec &trajectory)
 {
-    if (!isConnected())
+    if (!accepting)
     {
         cout << "Can't send because server not connected." << endl;
-        startListening();
-
         return;
     }
 
@@ -28,14 +26,8 @@ void BlockingServer::blockSendTrajectory(const info_vec &info, const trajectory_
 
     // block until trajectoryPending is false again.
     setPending(true);
-    //pendingON();
-//    boost::unique_lock<boost::mutex> lock(sendBlockMutex);
     blockWhilePending();
-
-//    while (isPending())
-//    {
-//        boost::this_thread::sleep( boost::posix_time::milliseconds(10));
-//    }
+    //boost::this_thread::sleep( boost::posix_time::seconds(2) ); // just dumbly wait
 
     cout << "blockSend exiting." << endl;
 }
@@ -74,54 +66,22 @@ void BlockingServer::callResponseMethods(const KukaResponse &response)
 
 void BlockingServer::trajectoryDone(const KukaResponse &response)
 {
-    if (isPending() && response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)
+
+    //if (isPending() && response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)  // TODO: do we need the ispending?
+    if (response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)
     {
+        cout << "BlockingServer trajectoryDone breaking pending ." << endl;
         setPending(false);
         sendBlockCondition.notify_one();
     }
 
 }
 
-void BlockingServer::closeConnection(socket_ptr sock)
+void BlockingServer::closeConnection()
 {
-    if (!isConnected())
-    {
-        cerr << "BlockingServer trying to close connection but not connected." << endl;
-        //return;
-    }
+    Server::closeConnection();
 
-    cout << "BlockingServer closing connection." << endl;
-
-    //cout << "BlockingServer closeConnection setting to false." << endl;
-    setConnected(false);  // threadsafe setting of connected = false
-
-    //cout << "BlockingServer closeConnection breaking pending ." << endl;
-    // break wait for pending trajectory
-    // TODO: crashes if done after socket close, boost bug?
-//    {
-//            boost::lock_guard<boost::mutex> lock(sendBlockMutex);
-//            trajectoryPending=false;
-//            //robotState = 0;
-//    }
-    //pendingOFF();
+    cout << "BlockingServer closeConnection breaking pending ." << endl;
     setPending(false);
     sendBlockCondition.notify_one();
-
-    //cout << "BlockingServer stopping queues." << endl;
-    // stop queues, which should terminate write and response threads
-    messageQueue.reject();
-    responseQueue.reject();
-
-    cout << "BlockingServer closeConnection shutting down socket." << endl;
-
-    sock->shutdown(boost::asio::ip::tcp::socket::shutdown_both);    // recommended by boost
-
-    //cout << "BlockingServer closeConnection trying to close socket." << endl;
-    //sock->close();
-
-    //cout << "BlockingServer closeConnection resetting socket and calling handleDisconnect." << endl;
-    //sock.reset();           // deallocate socket
-
-    cout << "BlockingServer closed connection." << endl;
-    handleDisconnect();     // user can do something
 }

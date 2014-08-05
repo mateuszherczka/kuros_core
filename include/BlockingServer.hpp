@@ -22,7 +22,7 @@ protected:
     /*
     Also breaks send block on disconnect.
     */
-    void closeConnection(socket_ptr sock) override;
+    void closeConnection() override;
 
 private:
 

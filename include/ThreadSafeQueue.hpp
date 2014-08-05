@@ -59,10 +59,11 @@ public:
 
         std::lock_guard<std::mutex> lk(mut);
 
-        data_queue.push(new_value);
-
-        data_cond.notify_one();
-
+        if (canAccept)
+        {
+            data_queue.push(new_value);
+            data_cond.notify_one();
+        }
     }
 
 
@@ -171,6 +172,7 @@ public:
 
     void reject()
     {
+        //cout << "ThreadSafeQueue rejecting." << endl;
         {
             std::lock_guard<std::mutex> lk(mut);
             while(!data_queue.empty())
@@ -179,6 +181,7 @@ public:
             }
             canAccept = false;
         }
+        //cout << "ThreadSafeQueue notifying." << endl;
         data_cond.notify_all();
     }
 

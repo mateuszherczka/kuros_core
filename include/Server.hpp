@@ -6,6 +6,7 @@
 #include <ostream>
 #include <string>
 #include <mutex>
+#include <atomic>
 
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
@@ -72,7 +73,9 @@ class Server
 
         void loadConfig();
 
-        bool isConnected();
+
+
+        bool isAccepting();
 
         bool busy();
 
@@ -83,11 +86,13 @@ class Server
         ThreadSafeQueue<streambuf_ptr> messageQueue;
         ThreadSafeQueue<streambuf_ptr> responseQueue;
 
+        std::atomic<bool> accepting {false};    // for external queries, is it accepting sends?
+
         void setReadThreadAlive(bool onoff);
         void setWriteThreadAlive(bool onoff);
         void setResponseThreadAlive(bool onoff);
 
-        virtual void closeConnection(socket_ptr sock);
+        virtual void closeConnection();
 
         /*
         Helpers for threadsafe setting of the connected flag.
@@ -104,14 +109,21 @@ class Server
         // Data
         // ---------------------------------------------------------------------------
 
-        bool connected = false;         // breaks read,write and onresponse loops when set to false
+        bool connected = false;         // Breaks read,write and responseThread while loops.
+
+        bool isConnected();
+
         /*
         This server allows only one connenction at a time.
         We want to make sure all threads are dead before allowing next connection.
         */
-        bool readThreadAlive = false;
-        bool writeThreadAlive = false;
-        bool responseThreadAlive = false;
+//        bool readThreadAlive = false;
+//        bool writeThreadAlive = false;
+//        bool responseThreadAlive = false;
+
+        std::atomic<bool> readThreadAlive {false};
+        std::atomic<bool> writeThreadAlive  {false};
+        std::atomic<bool> responseThreadAlive {false};
 
         int invalidParseCount = 0;      // handy counters
         int readMessageCount = 0;
@@ -122,10 +134,6 @@ class Server
 
         mutable std::mutex connectedMutex;
         mutable std::mutex cleanupMutex;
-
-        //boost::mutex connectedMutex;
-        //boost::mutex cleanupMutex;
-        //boost::mutex startupMutex;
 
         // ---------------------------------------------------------------------------
         // Private Methods
@@ -138,10 +146,11 @@ class Server
         void startListening(unsigned short port);
 
         /*
-        Specify socket pointer.
+        //Specify socket pointer.
         Blocks until connection ends.
         */
-        void onResponse(socket_ptr sock);
+        //void responseThread(socket_ptr sock);
+        void responseThread();
 
         /*
         To be overridden by a derived class.
@@ -154,13 +163,13 @@ class Server
         Specify socket pointer.
         Blocks until connection ends.
         */
-        void readMessage(socket_ptr sock);
+        void readThread(socket_ptr sock);
 
         /*
         Specify socket pointer.
         Blocks until connection ends.
         */
-        void writeMessage(socket_ptr sock);
+        void writeThread(socket_ptr sock);
 
         /*
         Returns a pointer to buffer inside streambuf.

@@ -10,22 +10,11 @@ Server::~Server()
 
 }
 
-/*  deprecated
-void Server::sendPose(const info_vec &info, const frame_vec &frame)
-{
-    streambuf_ptr message(new boost::asio::streambuf);
-    command.formatPose(*message, info, frame);   // first: infovector<int>, second: framevector<int>
-
-    messageQueue.push(message);
-}
-*/
-
 void Server::sendTrajectory(const info_vec &info, const trajectory_vec &trajectory)
 {
-    if (!isConnected())
+    if (!accepting)
     {
         cout << "Can't send because server not connected." << endl;
-        //startListening();
         return;
     }
 
@@ -43,11 +32,11 @@ void Server::startListening()
 {
 
     while (busy())
-        {
-            // block until it's possible to connect again
-            cout << "Server connected. Waiting..." << endl;
-            boost::this_thread::sleep( boost::posix_time::seconds(1) );
-        }
+    {
+        cout << "Waiting for server to reset." << endl;
+        boost::this_thread::sleep( boost::posix_time::milliseconds(1000));
+    }
+    boost::this_thread::sleep( boost::posix_time::milliseconds(500));
 
     startListening(serverConfig.getPort());
 
@@ -61,28 +50,33 @@ void Server::loadConfig()
     serverConfig.printValues();
 }
 
-void Server::closeConnection(socket_ptr sock)
+void Server::closeConnection()
 {
-    if (!isConnected())
-    {
-        cerr << "Server trying to close connection but not connected." << endl;
-        //return;
-    }
+//    if (!isConnected())
+//    {
+//        cerr << "Server trying to close connection but not connected." << endl;
+//        //return;
+//    }
 
     cout << "Server closing connection." << endl;
+
+    //cout << "Server no longer accepting." << endl;
+    accepting = false;      // atomic for external use
+
     //cout << "CloseConnection setting to false." << endl;
     setConnected(false);  // threadsafe setting of connected = false
-    //cout << "CloseConnection shutting down socket." << endl;
-    sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send);    // recommended by boost
-    //sock->close();
+
     //cout << "CloseConnection stopping queues." << endl;
-    // stop queues, which should terminate write and response threads
-    messageQueue.reject();
+    messageQueue.reject();  // stop queues, which should terminate write and response threads
     responseQueue.reject();
-    //cout << "CloseConnection resetting socket and calling handleDIsconnect()." << endl;
-    sock.reset();           // deallocate socket
+
     handleDisconnect();     // user can do something
-    cout << "Server closed connection." << endl;
+    //cout << "CloseConnection shutting down socket." << endl;
+    //sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send);    // recommended by boost
+    //sock->close();
+    //sock.reset();           // deallocate socket
+    //cout << "Server closed connection." << endl;
+    // just let socket go out of scope
 }
 
 void Server::resetData()
@@ -122,7 +116,7 @@ void Server::setReadThreadAlive(bool onoff)
     readThreadAlive = onoff;
     if (onoff)
     {
-        cout << "Read thread started." << endl;
+        //cout << "Read thread started." << endl;
     }
     else
     {
@@ -137,7 +131,7 @@ void Server::setWriteThreadAlive(bool onoff)
     writeThreadAlive = onoff;
     if (onoff)
     {
-        cout << "Write thread started." << endl;
+        //cout << "Write thread started." << endl;
     }
     else
     {
@@ -152,7 +146,7 @@ void Server::setResponseThreadAlive(bool onoff)
     responseThreadAlive = onoff;
     if (onoff)
     {
-        cout << "Response thread started." << endl;
+        //cout << "Response thread started." << endl;
     }
     else
     {
@@ -167,20 +161,21 @@ bool Server::isConnected()
     return connected;
 }
 
+bool Server::isAccepting()
+{
+    return accepting;   // atomic
+}
+
 bool Server::busy()
 {
     //boost::lock_guard<boost::mutex> guard(connectedMutex);
-    std::lock_guard<std::mutex> lk(connectedMutex);
-    return (connected || readThreadAlive || writeThreadAlive || responseThreadAlive);
+    //std::lock_guard<std::mutex> lk(connectedMutex);
+    return (accepting || readThreadAlive || writeThreadAlive || responseThreadAlive);   // all atomic
 }
 
-//bool Server::sendQueueEmpty()
-//{
-//    boost::lock_guard<boost::mutex> guard(queueMutex);
-//    return messageQueue.empty();
-//}
 
-void Server::onResponse(socket_ptr sock)
+//void Server::responseThread(socket_ptr sock)
+void Server::responseThread()
 {
     setResponseThreadAlive(true);
 
@@ -189,9 +184,10 @@ void Server::onResponse(socket_ptr sock)
         try
         {
             streambuf_ptr message;
-            responseQueue.wait_and_pop(message);    // blocks until something is in the queue or disconnencted
+            responseQueue.wait_and_pop(message);    // Blocks until something is in the queue. If disconnencted, doesnt touch message pointer.
 
-            if (isConnected())  // might have disconnected in the meanwhile
+            //if (isConnected())
+            if (message)    // TODO: experimental
             {
                 // we have a message, parse xml and do something
                 KukaResponse response;
@@ -206,10 +202,16 @@ void Server::onResponse(socket_ptr sock)
                     cerr << "Warning! Invalid response, no response handler invoked! Total " << invalidParseCount << " invalid responses received." << endl;
                 }
             }
+            else
+            {
+                break;
+//                setResponseThreadAlive(false);
+//                return;
+            }
         }
         catch (std::exception &e)
         {
-            cerr << "OnResponse exception: " << e.what() << endl;
+            cerr << "responseThread exception: " << e.what() << endl;
         }
     }
 
@@ -225,13 +227,7 @@ void Server::startListening(unsigned short port)
 {
     // TODO: use boost error handling here
 
-    /*
-    If previously connected, threads and socket shall be dead,
-    queues and data reset.
-    */
-    messageQueue.reset();
-    responseQueue.reset();
-    resetData();    // counters etc
+
 
     boost::asio::io_service io_service;
     tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), port));
@@ -243,30 +239,33 @@ void Server::startListening(unsigned short port)
 
     cout << "A client connected." << endl;
 
-//    boost::asio::socket_base::linger option;
-//    sock->get_option(option);
-//    bool is_set = option.enabled();
-//    unsigned short timeout = option.timeout();
-//    cout << "Socket options - is_set: " << is_set << " timeout: " << timeout << endl;
-
-    invalidParseCount = 0;
-    readMessageCount = 0;
-    writtenMessageCount = 0;
+    /*
+    If previously connected, threads and socket shall be dead,
+    queues and data reset.
+    */
+    messageQueue.reset();
+    responseQueue.reset();
+    resetData();    // counters etc
 
     setConnected(true);
-    //setConnectionON();
 
     // spawn
-    boost::thread read_thread(&Server::readMessage,this, sock);
-    boost::thread write_thread(&Server::writeMessage,this, sock);
-    boost::thread response_thread(&Server::onResponse,this, sock);
+    boost::thread read_thread(&Server::readThread,this, sock);
+    boost::thread write_thread(&Server::writeThread,this, sock);
+    boost::thread response_thread(&Server::responseThread,this);
+
+    read_thread.detach();
+    write_thread.detach();
+    response_thread.detach();
 
     // block for a second to let system get things rolling
     boost::this_thread::sleep( boost::posix_time::seconds(1) );
 
+    accepting = true;   // atomic for external use
+
 }
 
-void Server::readMessage(socket_ptr sock)
+void Server::readThread(socket_ptr sock)
 {
     setReadThreadAlive(true);
 
@@ -282,25 +281,38 @@ void Server::readMessage(socket_ptr sock)
             if (error == boost::asio::error::eof)
             {
                 cout << "Client disconnected." << endl;
-                closeConnection(sock);
-                setReadThreadAlive(false);
-                return;
+                closeConnection();
+                break;
             }
 
             responseQueue.push(message);
-
             ++readMessageCount;
         }
         catch (std::exception &e)   // complain but don't quit
         {
-            cout << "ReadMessage exception: " << e.what() << endl;
+            cerr << "Read thread exception: " << e.what() << endl;
         }
     }
 
+    /*
+    boost::system::error_code shutdownError;
+    sock->shutdown(boost::asio::ip::tcp::socket::shutdown_receive, shutdownError);    // recommended by boost
+    if (shutdownError)
+    {
+        cout << "Read thread socket shutdown complains:" << shutdownError << endl;
+    }
+
+    boost::system::error_code sockCloseError;
+    sock->close(sockCloseError);
+    if (sockCloseError)
+    {
+        cout << "Read thread socket close complains:" << sockCloseError << endl;
+    }
+    */
     setReadThreadAlive(false);
 }  // separate thread
 
-void Server::writeMessage(socket_ptr sock)
+void Server::writeThread(socket_ptr sock)
 {
     setWriteThreadAlive(true);
 
@@ -309,29 +321,42 @@ void Server::writeMessage(socket_ptr sock)
         while (isConnected())
         {
 
-            //cout << "writeMessage waiting." << endl;
+            //cout << "writeThread waiting." << endl;
             streambuf_ptr message;
-            messageQueue.wait_and_pop(message); // wait until something in queue or disconnect
-            //cout << "writeMessage awaking." << endl;
-            if (isConnected())   // might have disconnected
+            messageQueue.wait_and_pop(message); // Wait until something in queue. If disconnected exits without touching message pointer.
+            //cout << "writeThread awaking." << endl;
+            //if (isConnected())   // might have disconnected
+            if (message)    // TODO: experimental
             {
-                boost::system::error_code error;
-                boost::asio::write(*sock, *message, error);
+                boost::asio::write(*sock, *message);
                 ++writtenMessageCount;
-                //cout << "writeMessage wrote a message." << endl;
-                if (error == boost::asio::error::eof)
-                {
-                    cout << "Write thread discovered that client disconnected." << endl;
-                    setWriteThreadAlive(false);
-                    return;
-                }
+            }
+            else
+            {
+                break;
             }
         }
     }
     catch (std::exception &e)
     {
-        cout << "Writing exception: " << e.what() << endl;
+        cerr << "Writing exception: " << e.what() << endl;
     }
+
+    /*
+    boost::system::error_code shutdownError;
+    sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send, shutdownError);    // recommended by boost
+    if (shutdownError)
+    {
+        cerr << "Write thread socket shutdown complains:" << shutdownError << endl;
+    }
+
+    boost::system::error_code sockCloseError;
+    sock->close(sockCloseError);
+    if (sockCloseError)
+    {
+        cout << "Write thread socket close complains:" << sockCloseError << endl;
+    }
+    */
 
     setWriteThreadAlive(false);
 };     // separate thread
