@@ -12,24 +12,21 @@ BlockingServer::~BlockingServer()
 
 void BlockingServer::blockSendTrajectory(const info_vec &info, const trajectory_vec &trajectory)
 {
-    if (!accepting)
-    {
-        cout << "Can't send because server not connected." << endl;
-        return;
-    }
 
-    streambuf_ptr message(new boost::asio::streambuf);
-    KukaCommand command;
-    command.formatTrajectory(*message, info, trajectory);
+    sendTrajectory(info,trajectory);
 
-    messageQueue.push(message);
+//    streambuf_ptr message(new boost::asio::streambuf);
+//    KukaCommand command;
+//    command.formatTrajectory(*message, info, trajectory);
+//
+//    messageQueue.push(message);
 
     // block until trajectoryPending is false again.
     setPending(true);
     blockWhilePending();
     //boost::this_thread::sleep( boost::posix_time::seconds(2) ); // just dumbly wait
 
-    cout << "blockSend exiting." << endl;
+    //cout << "blockSend exiting." << endl;
 }
 
 void BlockingServer::blockWhilePending()
@@ -54,13 +51,11 @@ bool BlockingServer::isPending()
 
 void BlockingServer::callResponseMethods(const KukaResponse &response)
 {
-    // finally call user response
-    handleResponse(response);
+    // call user response
+    handleResponse(response);   // lets call this before trajectory unblocks
 
     // if finished with a pending trajectory, unblock send thread
     trajectoryDone(response);
-
-    // TODO: which one of these come first?
 }
 
 
@@ -70,7 +65,7 @@ void BlockingServer::trajectoryDone(const KukaResponse &response)
     //if (isPending() && response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)  // TODO: do we need the ispending?
     if (response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)
     {
-        cout << "BlockingServer trajectoryDone breaking pending ." << endl;
+        //cout << "BlockingServer trajectoryDone breaking pending ." << endl;
         setPending(false);
         sendBlockCondition.notify_one();
     }
@@ -81,7 +76,7 @@ void BlockingServer::closeConnection()
 {
     Server::closeConnection();
 
-    cout << "BlockingServer closeConnection breaking pending ." << endl;
+    //cout << "BlockingServer closeConnection breaking pending ." << endl;
     setPending(false);
     sendBlockCondition.notify_one();
 }

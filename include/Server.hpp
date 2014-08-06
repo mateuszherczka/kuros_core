@@ -7,6 +7,7 @@
 #include <string>
 #include <mutex>
 #include <atomic>
+#include <thread>
 
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
@@ -29,8 +30,10 @@ using boost::thread;
 // Types
 // ---------------------------------------------------------------------------
 
-typedef boost::shared_ptr<tcp::socket> socket_ptr;
-typedef boost::shared_ptr<boost::asio::streambuf> streambuf_ptr;
+typedef std::shared_ptr<tcp::socket> socket_ptr;
+typedef std::shared_ptr<boost::asio::streambuf> streambuf_ptr;
+typedef std::shared_ptr<std::thread> thread_ptr;
+typedef std::shared_ptr<ThreadSafeQueue<streambuf_ptr>> queue_ptr;
 
 // ---------------------------------------------------------------------------
 // Class
@@ -71,9 +74,9 @@ class Server
 
         virtual void startListening();  // can be overridden
 
+        void setReconnect(bool onoff);
+
         void loadConfig();
-
-
 
         bool isAccepting();
 
@@ -86,22 +89,7 @@ class Server
         ThreadSafeQueue<streambuf_ptr> messageQueue;
         ThreadSafeQueue<streambuf_ptr> responseQueue;
 
-        std::atomic<bool> accepting {false};    // for external queries, is it accepting sends?
-
-        void setReadThreadAlive(bool onoff);
-        void setWriteThreadAlive(bool onoff);
-        void setResponseThreadAlive(bool onoff);
-
         virtual void closeConnection();
-
-        /*
-        Helpers for threadsafe setting of the connected flag.
-        */
-        void setConnectionOFF();
-        void setConnectionON();
-        void setConnected(bool onoff);
-
-        void resetData();
 
     private:
 
@@ -109,47 +97,32 @@ class Server
         // Data
         // ---------------------------------------------------------------------------
 
-        bool connected = false;         // Breaks read,write and responseThread while loops.
+        //bool connected = false;         // Breaks read,write and responseThread while loops.
+        std::atomic<bool> connected {false};
 
         bool isConnected();
+        void setConnected(bool onoff);
 
-        /*
-        This server allows only one connenction at a time.
-        We want to make sure all threads are dead before allowing next connection.
-        */
-//        bool readThreadAlive = false;
-//        bool writeThreadAlive = false;
-//        bool responseThreadAlive = false;
+        std::atomic<bool> accepting {false};    // for external queries, is it accepting sends?
+        std::atomic<bool> keepAlive {false};    // after connecting once and disconnecting, will we connect again?
 
-        std::atomic<bool> readThreadAlive {false};
-        std::atomic<bool> writeThreadAlive  {false};
-        std::atomic<bool> responseThreadAlive {false};
 
         int invalidParseCount = 0;      // handy counters
         int readMessageCount = 0;
         int writtenMessageCount = 0;
 
+        void resetData();
+
+        // pointer to the sesson thread
+        thread_ptr session;
+
         // XML parsers
         ServerConfig serverConfig;
-
-        mutable std::mutex connectedMutex;
-        mutable std::mutex cleanupMutex;
 
         // ---------------------------------------------------------------------------
         // Private Methods
         // ---------------------------------------------------------------------------
 
-        /*
-        Specify port. Blocks until incoming connection.
-        When connected, spawns read/write threads, then exits.
-        */
-        void startListening(unsigned short port);
-
-        /*
-        //Specify socket pointer.
-        Blocks until connection ends.
-        */
-        //void responseThread(socket_ptr sock);
         void responseThread();
 
         /*
@@ -170,6 +143,10 @@ class Server
         Blocks until connection ends.
         */
         void writeThread(socket_ptr sock);
+
+        void sessionThread(unsigned short port);
+
+        void sleep(int ms);
 
         /*
         Returns a pointer to buffer inside streambuf.
