@@ -14,6 +14,7 @@ void ServerConfig::load()
     {
         cout << "ServerConfig load file exception: " << e.what() << endl;
     }
+
     if (errorState == 0)
     {
         parse();
@@ -51,7 +52,7 @@ void ServerConfig::parse()
             cout << "Port value exception! Port not changed." << endl;
         }
     }
-    else    // node doesnt exist
+    else     // node doesnt exist
     {
         nodeNotFound("Port");
     }
@@ -73,7 +74,7 @@ void ServerConfig::parse()
             cout << "MaxBufferSize value exception! MaxBufferSize not changed." << endl;
         }
     }
-    else    // node doesnt exist
+    else     // node doesnt exist
     {
         nodeNotFound("MaxBufferSize");
     }
@@ -95,7 +96,7 @@ void ServerConfig::parse()
             cout << "EndString value exception! EndString not changed. " << e.what() << endl;
         }
     }
-    else    // node doesnt exist
+    else     // node doesnt exist
     {
         nodeNotFound("MaxBufferSize");
     }

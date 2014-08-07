@@ -21,25 +21,28 @@ Not production-strength but works for simple testing.
 */
 class DataFile
 {
-    public:
-        DataFile();
-        virtual ~DataFile();
 
-        /*
-        Load space delimited file with each line containing <framesize> doubles.
-        Any line which parses to a different result is ignored.
-        */
-        void loadSDFrames(const string& filename, trajectory_vec &trajectory, size_t framesize = KUKA_FRAME_SIZE);
+public:
 
-        double roundToPrecision(double val);
+    DataFile();
+    virtual ~DataFile();
 
-        void setPrecision(int p);
+    /*
+    Load space delimited file with each line containing <framesize> doubles.
+    Any line which parses to a different result is ignored.
+    */
+    void loadSDFrames(const string& filename, trajectory_vec &trajectory, size_t framesize = KUKA_FRAME_SIZE);
 
-    protected:
-    private:
+    double roundToPrecision(double val);
 
-        int precision = 8;
-        double roundingConstant = pow(10, precision);
+    void setPrecision(int p);
+
+protected:
+
+private:
+
+    int precision = 8;
+    double roundingConstant = pow(10, precision);
 
 
 };

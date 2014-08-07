@@ -35,7 +35,7 @@ void DataFile::loadSDFrames(const string& filename, trajectory_vec &trajectory, 
             }
 
             // only use line if there are correct number of tokens
-            if (frame.size() == framesize)  // TODO: rewrite this hack
+            if (frame.size() == framesize)   // TODO: rewrite this hack
             {
                 trajectory.push_back(frame);    // TODO: is this efficient copywise?
             }

@@ -12,21 +12,28 @@ BlockingServer::~BlockingServer()
 
 void BlockingServer::blockSendTrajectory(const info_vec &info, const trajectory_vec &trajectory)
 {
+    if (!isAccepting())
+    {
+        cerr << "blockSendTrajectory() can't send because server not connected." << endl;
+        return;
+    }
 
-    sendTrajectory(info,trajectory);
+    try
+    {
+        streambuf_ptr message(new boost::asio::streambuf);
+        KukaCommand command;
+        command.formatTrajectory(*message, info, trajectory);   // first: infovector<int>, second: framevector<int>
 
-//    streambuf_ptr message(new boost::asio::streambuf);
-//    KukaCommand command;
-//    command.formatTrajectory(*message, info, trajectory);
-//
-//    messageQueue.push(message);
+        messageQueue.push(message);
+    }
+    catch (std::exception &e)
+    {
+        cerr << "BlockSendTrajectory exception: " << e.what() << endl;
+    }
 
     // block until trajectoryPending is false again.
     setPending(true);
     blockWhilePending();
-    //boost::this_thread::sleep( boost::posix_time::seconds(2) ); // just dumbly wait
-
-    //cout << "blockSend exiting." << endl;
 }
 
 void BlockingServer::blockWhilePending()
@@ -51,7 +58,7 @@ bool BlockingServer::isPending()
 
 void BlockingServer::callResponseMethods(const KukaResponse &response)
 {
-    // call user response
+    // user response
     handleResponse(response);   // lets call this before trajectory unblocks
 
     // if finished with a pending trajectory, unblock send thread
@@ -65,7 +72,6 @@ void BlockingServer::trajectoryDone(const KukaResponse &response)
     //if (isPending() && response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)  // TODO: do we need the ispending?
     if (response.info[KUKA_RSP_STATUS]==KUKA_TRAJ_DONE)
     {
-        //cout << "BlockingServer trajectoryDone breaking pending ." << endl;
         setPending(false);
         sendBlockCondition.notify_one();
     }
@@ -76,7 +82,6 @@ void BlockingServer::closeConnection()
 {
     Server::closeConnection();
 
-    //cout << "BlockingServer closeConnection breaking pending ." << endl;
     setPending(false);
     sendBlockCondition.notify_one();
 }

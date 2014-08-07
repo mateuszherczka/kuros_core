@@ -9,39 +9,38 @@
 
 using namespace tinyxml2;
 
-
 /*
 Base.
 */
 class XMLParser
 {
-    public:
+public:
 
-        const int MALFORMED_XML_ERROR = 666;
+    const int MALFORMED_XML_ERROR = 666;
 
-        XMLParser();
-        virtual ~XMLParser();
+    XMLParser();
+    virtual ~XMLParser();
 
-        bool isValid();
+    bool isValid();
 
-    protected:
+protected:
 
-        int errorState = 0;
-        XMLDocument doc;        // tinyxml
-        bool valid = true; // this is set to false if there is a malformed XML error
+    int errorState = 0;
+    XMLDocument doc;        // tinyxml
+    bool valid = true; // this is set to false if there is a malformed XML error
 
-        /*
-        Gets pointer to buffer inside streambuf.
-        */
-        const char * streambufToPtr(boost::asio::streambuf &message);
+    /*
+    Gets pointer to buffer inside streambuf.
+    */
+    const char * streambufToPtr(boost::asio::streambuf &message);
 
-        void malformedXMLError(const char *e);
+    void malformedXMLError(const char *e);
 
-        void nodeNotFound(const char *e);
+    void nodeNotFound(const char *e);
 
-        void badCast(const char *e);
+    void badCast(const char *e);
 
-    private:
+private:
 
 };
 

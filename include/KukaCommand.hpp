@@ -8,32 +8,32 @@
 
 class KukaCommand
 {
-    public:
+public:
 
-        // ---------------------------------------------------------------------------
-        // Constructor / Destructor
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Constructor / Destructor
+    // ---------------------------------------------------------------------------
 
-        KukaCommand();
+    KukaCommand();
 
-        virtual ~KukaCommand();
+    virtual ~KukaCommand();
 
-        // ---------------------------------------------------------------------------
-        // Public methods
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Public methods
+    // ---------------------------------------------------------------------------
 
-        /*
-            message: a streambuf to fill
-            info:   <RMode RMs Id Run Vel FrameType>
-            trajectory:  vector of several frames <X Y Z A B C>
+    /*
+        message: a streambuf to fill
+        info:   <RMode RMs Id Run Vel FrameType>
+        trajectory:  vector of several frames <X Y Z A B C>
 
-            trajectory.size() is used as framecount, make sure frames are valid!
-        */
-        void formatTrajectory(boost::asio::streambuf &message, const info_vec &info , const trajectory_vec &trajectory);
+        trajectory.size() is used as framecount, make sure frames are valid!
+    */
+    void formatTrajectory(boost::asio::streambuf &message, const info_vec &info , const trajectory_vec &trajectory);
 
-    protected:
+protected:
 
-    private:
+private:
 
 };
 

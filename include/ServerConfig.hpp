@@ -9,46 +9,46 @@ using boost::bad_lexical_cast;
 
 class ServerConfig : public XMLParser
 {
-    public:
+public:
 
-        // ---------------------------------------------------------------------------
-        // Constructor / Destructor
-        // ---------------------------------------------------------------------------
-        ServerConfig();
-        virtual ~ServerConfig();
+    // ---------------------------------------------------------------------------
+    // Constructor / Destructor
+    // ---------------------------------------------------------------------------
+    ServerConfig();
+    virtual ~ServerConfig();
 
-        // ---------------------------------------------------------------------------
-        // Public methods
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Public methods
+    // ---------------------------------------------------------------------------
 
-        void load();
+    void load();
 
-        void printValues();
+    void printValues();
 
-        unsigned short getPort();
-        size_t getMaxBufferSize();
-        std::string getEndString();
+    unsigned short getPort();
+    size_t getMaxBufferSize();
+    std::string getEndString();
 
-    protected:
+protected:
 
-    private:
+private:
 
-        // ---------------------------------------------------------------------------
-        // Private data
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Private data
+    // ---------------------------------------------------------------------------
 
-        std::string filename = "ServerConfig.xml";  // load this
+    std::string filename = "ServerConfig.xml";  // load this
 
-        // default
-        unsigned short port = 6008;
-        std::string endString = "</Robot>";
-        std::size_t maxBufferSize = 2048;
+    // default
+    unsigned short port = 6008;
+    std::string endString = "</Robot>";
+    std::size_t maxBufferSize = 2048;
 
-        // ---------------------------------------------------------------------------
-        // Private methods
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Private methods
+    // ---------------------------------------------------------------------------
 
-        void parse();
+    void parse();
 };
 
 #endif // SERVERCONFIG_H

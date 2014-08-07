@@ -10,24 +10,21 @@
 #include <thread>
 
 #include <boost/asio.hpp>
-#include <boost/thread.hpp>
-//#include <boost/thread/mutex.hpp>
-//#include <boost/thread/locks.hpp>
-//#include <boost/thread/lock_guard.hpp>
-
-#include <ThreadSafeQueue.hpp>
+//#include <boost/thread.hpp>
 
 #include <types.hpp>
+
+#include <ThreadSafeQueue.hpp>
 
 #include <ServerConfig.hpp>
 #include <KukaResponse.hpp>
 #include <KukaCommand.hpp>
 
 using boost::asio::ip::tcp;
-using boost::thread;
+//using boost::thread;
 
 // ---------------------------------------------------------------------------
-// Types
+// Types used by server
 // ---------------------------------------------------------------------------
 
 typedef std::shared_ptr<tcp::socket> socket_ptr;
@@ -41,117 +38,113 @@ typedef std::shared_ptr<ThreadSafeQueue<streambuf_ptr>> queue_ptr;
 
 class Server
 {
-    public:
+public:
 
-        // ---------------------------------------------------------------------------
-        // Constructor / Destructor
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Constructor / Destructor
+    // ---------------------------------------------------------------------------
 
-        Server();
+    Server();
 
-        virtual ~Server();
+    virtual ~Server();
 
-        // ---------------------------------------------------------------------------
-        // Pure Virtual
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Pure Virtual
+    // ---------------------------------------------------------------------------
 
-        /*
-        handleResponse() is called from a separate response thread.
-        There is a queue between the socket and this call. Still, handleResponse()
-        blocks the thread until return. If you expect a 12ms stream of responses,
-        it's probably a good idea to deal with the response swiftly.
-        */
-        virtual void handleResponse(const KukaResponse &response) = 0; // This is mandatory to implement in derived class
-        virtual void handleDisconnect() = 0; // This is mandatory to implement in derived class
+    /*
+    handleResponse() is called from a separate response thread.
+    There is a queue between the socket and this call. Still, handleResponse()
+    blocks the thread until return. If you expect a 12ms stream of responses,
+    it's probably a good idea to deal with the response swiftly.
+    */
+    virtual void handleResponse(const KukaResponse &response) = 0; // This is mandatory to implement in derived class
+    virtual void handleDisconnect() = 0; // This is mandatory to implement in derived class
 
-        // ---------------------------------------------------------------------------
-        // Methods
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Methods
+    // ---------------------------------------------------------------------------
 
-        // void sendPose(const info_vec &info, const frame_vec &frame); // deprecated
+    // void sendPose(const info_vec &info, const frame_vec &frame); // deprecated
 
-        void sendTrajectory(const info_vec &info, const trajectory_vec &trajectory);
+    void sendTrajectory(const info_vec &info, const trajectory_vec &trajectory);
 
-        virtual void startListening();  // can be overridden
+    virtual void startListening();  // can be overridden
 
-        void setReconnect(bool onoff);
+    void setReconnect(bool onoff);
 
-        void loadConfig();
+    void loadConfig();
 
-        bool isAccepting();
+    bool isAccepting();
 
-        bool busy();
+protected:
 
-        //bool sendQueueEmpty();
+    ThreadSafeQueue<streambuf_ptr> messageQueue;    // TODO: make threadsafe queue pointers here instead
+    ThreadSafeQueue<streambuf_ptr> responseQueue;   // TODO: create and destroy queues inside session
 
-    protected:
+    virtual void closeConnection();
 
-        ThreadSafeQueue<streambuf_ptr> messageQueue;
-        ThreadSafeQueue<streambuf_ptr> responseQueue;
+private:
 
-        virtual void closeConnection();
+    // ---------------------------------------------------------------------------
+    // Data
+    // ---------------------------------------------------------------------------
 
-    private:
+    //bool connected = false;         // Breaks read,write and responseThread while loops.
+    std::atomic<bool> connected {false};
 
-        // ---------------------------------------------------------------------------
-        // Data
-        // ---------------------------------------------------------------------------
+    bool isConnected();
+    void setConnected(bool onoff);
 
-        //bool connected = false;         // Breaks read,write and responseThread while loops.
-        std::atomic<bool> connected {false};
-
-        bool isConnected();
-        void setConnected(bool onoff);
-
-        std::atomic<bool> accepting {false};    // for external queries, is it accepting sends?
-        std::atomic<bool> keepAlive {false};    // after connecting once and disconnecting, will we connect again?
+    std::atomic<bool> accepting {false};    // for external queries, is it accepting sends?
+    std::atomic<bool> keepAlive {false};    // after connecting once and disconnecting, will we connect again?
 
 
-        int invalidParseCount = 0;      // handy counters
-        int readMessageCount = 0;
-        int writtenMessageCount = 0;
+    std::atomic<int> invalidParseCount {0};      // handy counters
+    std::atomic<int> readMessageCount {0};
+    std::atomic<int> writtenMessageCount {0};
 
-        void resetData();
+    void resetData();
 
-        // pointer to the sesson thread
-        thread_ptr session;
+    // pointer to the sesson thread
+    thread_ptr session;
 
-        // XML parsers
-        ServerConfig serverConfig;
+    // XML parsers
+    ServerConfig serverConfig;
 
-        // ---------------------------------------------------------------------------
-        // Private Methods
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Private Methods
+    // ---------------------------------------------------------------------------
 
-        void responseThread();
+    void responseThread();
 
-        /*
-        To be overridden by a derived class.
-        Provides a way for server to take internal action
-        on responses, in addition to calling handleResponse().
-        */
-        virtual void callResponseMethods(const KukaResponse &response);
+    /*
+    To be overridden by a derived class.
+    Provides a way for server to take internal action
+    on responses, in addition to calling handleResponse().
+    */
+    virtual void callResponseMethods(const KukaResponse &response);
 
-        /*
-        Specify socket pointer.
-        Blocks until connection ends.
-        */
-        void readThread(socket_ptr sock);
+    /*
+    Specify socket pointer.
+    Blocks until connection ends.
+    */
+    void readThread(socket_ptr sock);
 
-        /*
-        Specify socket pointer.
-        Blocks until connection ends.
-        */
-        void writeThread(socket_ptr sock);
+    /*
+    Specify socket pointer.
+    Blocks until connection ends.
+    */
+    void writeThread(socket_ptr sock);
 
-        void sessionThread(unsigned short port);
+    void sessionThread(unsigned short port);
 
-        void sleep(int ms);
+    void sleep(int ms);
 
-        /*
-        Returns a pointer to buffer inside streambuf.
-        */
-        const char * streambufToPtr(boost::asio::streambuf &message);
+    /*
+    Returns a pointer to buffer inside streambuf.
+    */
+    const char * streambufToPtr(boost::asio::streambuf &message);
 
 
 

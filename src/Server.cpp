@@ -20,25 +20,28 @@ Server::~Server()
 
 void Server::sendTrajectory(const info_vec &info, const trajectory_vec &trajectory)
 {
-    while (!accepting)
+    if (!accepting)
     {
-        cout << "SendTrajectory() waiting for server connection." << endl;
-        boost::this_thread::sleep( boost::posix_time::milliseconds(1000));
+        cout << "SendTrajectory() can't send because server not connected." << endl;
+        return;
     }
 
-    streambuf_ptr message(new boost::asio::streambuf);
-    KukaCommand command;
-    command.formatTrajectory(*message, info, trajectory);   // first: infovector<int>, second: framevector<int>
+    try
+    {
+        streambuf_ptr message(new boost::asio::streambuf);
+        KukaCommand command;
+        command.formatTrajectory(*message, info, trajectory);   // first: infovector<int>, second: framevector<int>
 
-    //cout << "sendTrajectory about to push a message." << endl;
-    messageQueue.push(message);
-
-    //cout << "sendTrajectory pushed message." << endl;
+        messageQueue.push(message);
+    }
+    catch (std::exception &e)
+    {
+        cerr << "responseThread exception: " << e.what() << endl;
+    }
 }
 
 void Server::loadConfig()
 {
-
     serverConfig.load();
     cout << "Port MaxBufferSize EndString:" << endl;
     serverConfig.printValues();
@@ -88,20 +91,6 @@ bool Server::isAccepting()
     return accepting;   // atomic
 }
 
-//void Server::setAccepting(bool onoff)
-//{
-//    accepting = onoff;
-//}
-
-//bool Server::busy()
-//{
-//    //boost::lock_guard<boost::mutex> guard(connectedMutex);
-//    //std::lock_guard<std::mutex> lk(connectedMutex);
-//    return (accepting || readThreadAlive || writeThreadAlive || responseThreadAlive);   // all atomic
-//}
-
-
-//void Server::responseThread(socket_ptr sock)
 void Server::responseThread()
 {
     //setResponseThreadAlive(true);
@@ -109,9 +98,10 @@ void Server::responseThread()
     {
         while (connected)
         {
-
             streambuf_ptr message;
-            responseQueue.wait_and_pop(message);    // Blocks until something is in the queue. If disconnencted, doesnt touch message pointer.
+            // Blocks until something is in the queue.
+            // If disconnencted it should stop waiting but not touch message pointer, which will be null.
+            responseQueue.wait_and_pop(message);
 
             if (message)
             {
@@ -128,12 +118,6 @@ void Server::responseThread()
                     cerr << "Warning! Invalid response, no response handler invoked! Total " << invalidParseCount << " invalid responses received." << endl;
                 }
             }
-            /*
-            else
-            {
-                break;  // TODO: do we trust the queue or is there risk for spurious wakeup?
-            }
-            */
         }
 
     }
@@ -142,10 +126,8 @@ void Server::responseThread()
         cerr << "responseThread exception: " << e.what() << endl;
     }
 
-    //setResponseThreadAlive(false);
-
     cout << "Response thread exiting." << endl;
-}   // separate thread
+}
 
 void Server::callResponseMethods(const KukaResponse &response)
 {
@@ -159,18 +141,14 @@ void Server::sleep(int ms)
 
 void Server::startListening()
 {
-
-    // TODO: this should only be called once unless session is dead for some reason
-    // if session exists, return
-
     if (session)
     {
-        cerr << "Session already exists, only one session allowed." << endl;
+        cerr << "Can't start listening. Session already exists, only one session allowed." << endl;
         return;
     }
 
     accepting = false; // atomic
-    //startListening(serverConfig.getPort());
+
     try
     {
         // spawn new session thread
@@ -188,12 +166,6 @@ void Server::startListening()
     }
 }
 
-/*
-void Server::startListening(unsigned short port)
-{
-
-}
-*/
 void Server::sessionThread(unsigned short port)
 {
     try
@@ -224,9 +196,9 @@ void Server::sessionThread(unsigned short port)
                 */
                 messageQueue.reset();
                 responseQueue.reset();
-                resetData();    // counters etc
+                resetData();            // counters etc
 
-                connected = true;   // atomic
+                connected = true;       // atomic
 
                 // spawn
                 std::thread read_thread(&Server::readThread,this, sock);
@@ -243,6 +215,7 @@ void Server::sessionThread(unsigned short port)
                 response_thread.join();
             }
 
+            // if we get here, connection is terminated, try to shutdown sockets
             boost::system::error_code shutdownError;
             sock->shutdown(boost::asio::ip::tcp::socket::shutdown_both, shutdownError);    // recommended by boost
             if (shutdownError)
@@ -268,9 +241,7 @@ void Server::sessionThread(unsigned short port)
     catch (std::exception &e)
     {
         cout << "Session exception: " << e.what() << endl;
-
     }
-
 }
 
 void Server::readThread(socket_ptr sock)
@@ -285,8 +256,9 @@ void Server::readThread(socket_ptr sock)
             boost::system::error_code error;
             boost::asio::read_until(*sock, *message, serverConfig.getEndString(), error);   // waits for incoming data or eof
 
-            if (error == boost::asio::error::eof)
+            if (error == boost::asio::error::eof)   // client disconnected
             {
+                // signal to all threads
                 closeConnection();
                 cout << "Client disconnected." << endl;
                 //break;
@@ -303,13 +275,13 @@ void Server::readThread(socket_ptr sock)
 
         }
     }
-    catch (std::exception &e)   // complain but don't quit
+    catch (std::exception &e)     // complain but don't quit
     {
         cerr << "Read thread exception: " << e.what() << endl;
     }
 
     cout << "Read thread exiting." << endl;
-}  // separate thread
+}
 
 void Server::writeThread(socket_ptr sock)
 {
@@ -317,8 +289,12 @@ void Server::writeThread(socket_ptr sock)
     {
         while (connected)
         {
+            /*
+            Wait until something in queue.
+            If disconnected it should stop waiting without touching message pointer.
+            */
             streambuf_ptr message;
-            messageQueue.wait_and_pop(message); // Wait until something in queue. If disconnected exits without touching message pointer.
+            messageQueue.wait_and_pop(message);
 
             if (message)
             {
@@ -333,12 +309,6 @@ void Server::writeThread(socket_ptr sock)
                     ++writtenMessageCount;
                 }
             }
-            /*
-            else
-            {
-                break;
-            }
-            */
         }
     }
     catch (std::exception &e)
@@ -346,10 +316,8 @@ void Server::writeThread(socket_ptr sock)
         cerr << "Writing exception: " << e.what() << endl;
     }
 
-    //setWriteThreadAlive(false);
-
     cout << "Write thread exiting." << endl;
-};     // separate thread
+};
 
 /*
 Returns a pointer to buffer inside streambuf.

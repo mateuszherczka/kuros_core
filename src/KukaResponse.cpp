@@ -122,8 +122,8 @@ void KukaResponse::parse(boost::asio::streambuf &message)
 
     // Axis
     XMLElement *axframe = docHandle.FirstChildElement( "Robot" ).
-                         FirstChildElement( "Axis" ).
-                         ToElement();
+                          FirstChildElement( "Axis" ).
+                          ToElement();
 
     if ( axframe )      // check for nulpointer
     {

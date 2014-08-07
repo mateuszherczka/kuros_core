@@ -42,7 +42,7 @@ const int KUKA_RMODE_BASIC = 1; // ready, exiting, traj start, traj end.
 const int KUKA_RMODE_STREAM = 3; // BASIC + stream every NN ms
 
 /*
-Robot status
+Robot status as sent by the robot
 */
 const int KUKA_NOSTATUS = 0;
 const int KUKA_READY = 1;

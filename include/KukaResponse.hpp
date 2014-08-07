@@ -11,54 +11,54 @@ using boost::bad_lexical_cast;
 
 class KukaResponse : public XMLParser
 {
-    public:
+public:
 
-        // ---------------------------------------------------------------------------
-        // Public Data
-        // ---------------------------------------------------------------------------
-        std::vector<int> info;
-        std::vector<double> frame;
-        std::vector<double> axis;
+    // ---------------------------------------------------------------------------
+    // Public Data
+    // ---------------------------------------------------------------------------
+    std::vector<int> info;
+    std::vector<double> frame;
+    std::vector<double> axis;
 
-        // ---------------------------------------------------------------------------
-        // Constructor / Destructor
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Constructor / Destructor
+    // ---------------------------------------------------------------------------
 
-        KukaResponse();
+    KukaResponse();
 
-        virtual ~KukaResponse();
+    virtual ~KukaResponse();
 
-        // ---------------------------------------------------------------------------
-        // Public Methods
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Public Methods
+    // ---------------------------------------------------------------------------
 
-        // parses and stores internally
-        void parse(boost::asio::streambuf &message);
+    // parses and stores internally
+    void parse(boost::asio::streambuf &message);
 
-        /*
-            Status Id Tick
-        */
-        std::vector<int> getInfo();
+    /*
+        Status Id Tick
+    */
+    std::vector<int> getInfo();
 
-        /*
-            X Y Z A B C
-        */
-        std::vector<double> getFrame();
+    /*
+        X Y Z A B C
+    */
+    std::vector<double> getFrame();
 
-        /*
-            a1 a2 a3 a4 a5 a6
-        */
-        std::vector<double> getAxis();
+    /*
+        a1 a2 a3 a4 a5 a6
+    */
+    std::vector<double> getAxis();
 
-        void printValues() const;
+    void printValues() const;
 
-    protected:
+protected:
 
-    private:
+private:
 
-        // ---------------------------------------------------------------------------
-        // Private Data
-        // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Private Data
+    // ---------------------------------------------------------------------------
 
 
 
