@@ -17,6 +17,6 @@ typedef std::vector< frame_vec > trajectory_vec;
 using std::cout;
 using std::cerr;
 using std::endl;
-using std::exception;
+//using std::exception;
 
 #endif // TYPES_HPP_INCLUDED

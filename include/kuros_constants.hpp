@@ -28,6 +28,8 @@ const int KUKA_FRAMETYPE  = 6;
 
 const int KUKA_CARTESIAN = 1;
 const int KUKA_AXIS = 2;
+const int KUKA_CARTESIAN_REL = 3;
+const int KUKA_AXIS_REL = 4;
 /*
 Indexes for info vector response from robot.
 */
